@@ -244,6 +244,17 @@ Voice is supported in both directions — speech-to-text input and text-to-speec
 
 All of this rides existing rails: media travels over the blob channel with references in the event log (section 14.5), and every cross-model handoff — vision description, OCR result, transcription — is a visible event, never invisible context.
 
+### 3.9 Talking while it works
+
+Typing at a running agent must never be a mystery. There are exactly four kinds of mid-run input, each with defined semantics, available from every client:
+
+- **Steer** (the default): the message is injected into the current turn at the next tool boundary. The agent sees it mid-task and adjusts course without abandoning work in progress.
+- **Follow-up**: the message queues until the current turn completes, then arrives as the next prompt. Multiple follow-ups queue in order.
+- **Interrupt**: stop at the next safe checkpoint, then deliver the message. Work already done is preserved in the tree.
+- **Side question** (`/btw`, section 6.5): answered immediately by a side-channel branch; the main agent never sees it and never slows down.
+
+Steering and follow-ups arrive as ordinary appended events — cache-safe (section 7.1), logged, and visible in the tree like any other input. The client shows which mode a message will use before it is sent, and switching modes is one keystroke, not a setting.
+
 ## 4. Adoption compiler
 
 ### 4.1 Pipeline
