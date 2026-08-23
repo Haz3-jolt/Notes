@@ -508,8 +508,20 @@ This does not reopen the non-goal (section 18): there is no bespoke workflow lan
 
 Named, swappable agent definitions live in an agents folder — `.bolt/agents/` in the project, `~/.bolt/agents/` globally:
 
-- A definition names an agent (`reviewer`, `test-writer`, `researcher`) and sets its model, effort, tool set, prompt, and default placement.
-- Definitions are data, not code: swap the model in a definition file and the next spawn uses it — no reinstall, no restart.
+- A definition is a markdown file: YAML frontmatter plus a prompt body.
+
+```yaml
+name: reviewer
+description: Adversarial review of a diff, reports findings with evidence
+model: provider/model-id
+reasoning: high
+tools: [read, shell, web_search]
+exec: sandbox-only   # open | sandbox-only | cloud-only | local-only
+```
+
+- The body below the frontmatter is the agent's prompt. The description doubles as the capability index line (section 7.5), so writing a good description is writing the agent's discoverability.
+- The `exec` field constrains placement: a definition marked `sandbox-only` can never spawn unsandboxed, whoever invokes it — the constraint travels with the definition, and per the child contract (section 6.3) it can only be narrowed further at spawn, never widened.
+- Definitions are data, not code: swap the model or effort in the file and the next spawn uses it — no reinstall, no restart.
 - `/subagents`, workflows, and goals spawn by definition name; ad-hoc spawns without a definition remain possible.
 - Claude Code agent definitions (`.claude/agents/`) are an adoption target like any other resource (section 4).
 
@@ -584,6 +596,8 @@ The same progressive disclosure users get (section 3.6) applies to the model: ca
 - Discovery is visible: each capability load is an event in the log, so the viewer shows exactly when and why the model pulled something in.
 - Disabled features (section 2.9) are not discoverable — they are absent from the index entirely, preserving the zero-token guarantee. Discovery reveals what exists; it never resurrects what was turned off.
 - Discovery grants nothing: finding the subagent RPC does not confer spawn authority (section 6.2), and every discovered tool still passes through normal permission and sandbox policy. The index is a map, not a keyring.
+
+Mechanically, the index is built from metadata that already exists: the YAML frontmatter of skills and agent definitions — the `description` field is the index line — and each extension's manifest. Loading is an ordinary tool call in the loop: the model asks, the full body or schema comes back as the tool result, appended to history like any message. For tool schemas there is one subtlety: the provider-visible tool list is part of the cached prompt prefix, so discovery must not grow it. Bolt keeps that list fixed — core roster, discovery, and a generic invoke — and calls discovered tools through registry-validated dispatch, so the prefix stays byte-identical for the whole session (section 7.1).
 
 The payoff is compounding: Bolt can ship dozens of capabilities while a simple session pays for six tools and an index — and the model, like the user, learns the product by using it.
 
