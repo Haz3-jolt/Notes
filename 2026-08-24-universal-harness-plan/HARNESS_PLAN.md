@@ -574,6 +574,19 @@ standard  shell, read, edit, write, web_search, fetch_content
 - Extensions and MCP servers add tools, and every tool is toggleable per session.
 - A tool that is unavailable contributes zero prompt tokens (section 7.1) — profiles are subtractive from nothing, not additive onto a bloated base.
 
+### 7.5 Model-side progressive disclosure
+
+The same progressive disclosure users get (section 3.6) applies to the model: capabilities are discovered as needed, not preloaded.
+
+- The base prompt carries the core roster (section 7.4) plus a tiny capability index — one line per available capability family, enough for the model to know what is findable, nothing more.
+- Everything else loads on demand: the model queries the index when a task needs a capability ("take a screenshot", "spawn a reviewer", "resume a session"), and the matching tool schema or skill body is appended to context at that moment. Skills already work this way (no full body until selected); this extends the pattern to the whole surface.
+- Discovery is cache-safe by construction: loaded capabilities append to the conversation (section 7.1), never mutate the prefix.
+- Discovery is visible: each capability load is an event in the log, so the viewer shows exactly when and why the model pulled something in.
+- Disabled features (section 2.9) are not discoverable — they are absent from the index entirely, preserving the zero-token guarantee. Discovery reveals what exists; it never resurrects what was turned off.
+- Discovery grants nothing: finding the subagent RPC does not confer spawn authority (section 6.2), and every discovered tool still passes through normal permission and sandbox policy. The index is a map, not a keyring.
+
+The payoff is compounding: Bolt can ship dozens of capabilities while a simple session pays for six tools and an index — and the model, like the user, learns the product by using it.
+
 ## 8. Learning loop
 
 The learning system is a ladder of three tiers, each with its own approval control:
