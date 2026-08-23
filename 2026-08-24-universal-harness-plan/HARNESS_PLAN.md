@@ -588,7 +588,7 @@ standard  shell, read, edit, write, web_search, fetch_content
 
 To keep the roster honest, be precise about what a tool is. Bolt has four invocation directions, and only the first is a tool:
 
-- **Model → harness: tools.** The model decides to call these mid-turn. Very few things are tools: the core roster, web access, the browser, MCP bridges, discovery, and the harness-control surface.
+- **Model → harness: tools.** The model decides to call these mid-turn. Very few things are tools: the standard roster (which already includes web access), the browser, MCP bridges, discovery, and the harness-control surface.
 - **User → harness: commands.** `/goal`, `/btw`, `/subagents`, `/learn`, `/adopt`, `/insights` — RPCs the user invokes (section 14.5). The model never calls a command; it can reach the same RPCs only through the harness-control tool when asked.
 - **Harness → model: roles.** Compaction, tips, facet extraction, vision description — the harness calling a model, the inverse arrow of a tool (section 2.7).
 - **Harness → itself: machinery.** Hooks, the learning ledger, the tips engine, the reconciler — nothing invokes these conversationally.
