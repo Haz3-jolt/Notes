@@ -94,7 +94,13 @@ Bolt has many capabilities and therefore many settings — and that is exactly w
 DSH's posture, applied to everything except the kernel: every shipped feature is a native extension that can be individually enabled or disabled. Side conversations, goal mode, plan mode, insights, learning, web access, the browser, the session viewer, tips, workflows, mission control, the review inbox, vision routing, voice — all of it is built on the public extension API (section 5), same as third-party code, and all of it can be turned off.
 
 - A disabled feature contributes zero prompt tokens, zero UI, and zero background work — disabling is subtraction, not hiding.
-- The kernel (section 2.3) is the one thing that is not a plugin: the event log, the loop, and the policy layer are not swappable, because that is where the guarantees live.
+- The kernel (section 2.3) is the one thing that is not a plugin. This is a deliberate disagreement with DSH, where the model adapter, session log, and even the agent loop are replaceable, and the reasons are specific:
+  - **The guarantees live there.** Log-is-truth (section 14.6), append-only cache discipline (section 7.1), tool call/result integrity (section 13), and deterministic replay (section 16.3) are all properties of one fixed event log. A swappable log means none of them can be promised — every install would be a different Bolt.
+  - **Security enforced below extensions (section 2.6) requires the policy layer to not be an extension.** If permissions and sandbox enforcement were plugins, any plugin could replace the boundary it is supposed to be behind.
+  - **Everything interoperates through the kernel.** Clients, the SDK, the viewer, insights, session import, and compaction all assume one event format and one loop. Swap those per-install and the ecosystem fragments: sessions stop being portable, replays stop reproducing, bug reports stop meaning anything.
+  - **DSH's flexibility serves framework builders; Bolt is a product.** The cost of a fully swappable core is carried by users — combinatorial testing surface, "which plugin broke it" debugging, and composition decisions that section 2.8 promises to never require.
+
+  Extensions still get defined interception points on the kernel — custom compaction (section 13), hooks, renderers — which is influence over kernel behavior without replacement of it.
 - First-party features get no private APIs. If Bolt's own features can be built on the extension API, third-party ones can too — the shipped features are the proof the API is sufficient.
 
 ## 3. User experience
