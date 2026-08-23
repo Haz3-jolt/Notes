@@ -204,6 +204,17 @@ Rules that keep tips helpful instead of annoying:
 - Rate-limited, one line, never blocking, never a modal.
 - Tips guide toward features, never toward required setup — per section 2.8, ignoring every tip must still leave an excellent agent.
 
+### 3.7 Goal mode (/goal)
+
+Codex-style persistent objectives: `/goal <objective>` gives a session a stable target, and the loop keeps going — plan, act, verify, correct — until the objective is met or the agent hits a wall it cannot pass alone.
+
+- A goal states its completion criteria up front, and completion must be demonstrated (tests pass, build green), never asserted.
+- Goals are persisted state: they survive pauses, disconnects, restarts, and placement moves, and resume where they left off.
+- A goal may fork attempts as branches (section 14.4) and spawn subagent children (section 6.4) toward the same target.
+- Budgets (section 14.3) are the safety rail: a goal always runs under token, cost, and wall-clock ceilings, and pausing at a ceiling is a loud, resumable state — not a failure.
+- Getting stuck is reported loudly, with what was tried and what is blocking. A goal never spins silently.
+- Mission control and the mobile app show goal progress; blocked and completed goals notify.
+
 ## 4. Adoption compiler
 
 ### 4.1 Pipeline
