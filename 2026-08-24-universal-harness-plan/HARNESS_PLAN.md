@@ -227,7 +227,7 @@ Codex-style persistent objectives: `/goal <objective>` gives a session a stable 
 
 - A goal states its completion criteria up front, and completion must be demonstrated (tests pass, build green), never asserted.
 - Goals are persisted state: they survive pauses, disconnects, restarts, and placement moves, and resume where they left off.
-- A goal may fork attempts as branches (section 14.4) and spawn subagent children toward the same target under its delegated spawn authority (section 6.2), bounded by the goal's budget.
+- A goal may fork attempts as branches (section 14.4) and spawn subagent children — test runners, reviewers, parallel attempts — under the spawn authority goals hold by default (section 6.2), bounded by the goal's budget.
 - Budgets (section 14.3) are the safety rail: a goal always runs under token, cost, and wall-clock ceilings, and pausing at a ceiling is a loud, resumable state — not a failure.
 - Getting stuck is reported loudly, with what was tried and what is blocking. A goal never spins silently.
 - Mission control and the mobile app show goal progress; blocked and completed goals notify.
@@ -439,7 +439,7 @@ Exactly four authorities may create a child session:
 
 - **The user**: `/subagents` (section 6.4) and `/btw` (section 6.5).
 - **A script**: workflows (section 6.6) — code decides the fan-out, not the model.
-- **A goal**: inside `/goal` (section 3.7), the loop may spawn children on its own judgment. That authority is delegated explicitly by the user when the goal is set, and it is bounded by the goal's budget — borrowed authority, never a default capability.
+- **A goal**: a goal holds spawn authority by default — setting a goal is the act of delegation. Inside `/goal` (section 3.7) the loop spawns test runners, reviewers, and parallel fix attempts on its own judgment, always bounded by the goal's budget; the authority can be withheld per goal for users who want a single-session run. Outside goal mode, an ordinary session never gains this by default.
 - **The system**: bounded internal workers for explicit operations like `/adopt` (section 4.2).
 
 Outside these four, nothing spawns.
@@ -474,6 +474,16 @@ dispose
 Each backend advertises capabilities such as continuation, history fork, structured output, tool restriction, resume, remote attachment, and hard termination. Unsupported capability requests fail explicitly.
 
 The external harness child deserves emphasis: Bolt can drive another harness — a Claude Code or Codex session — as a subagent, its output entering the tree like any native child. The subagent contract doubles as the interop story.
+
+The contract, in full:
+
+- **Spawn request**: an agent definition name (section 6.7) or an ad-hoc spec — model, effort, tool set, placement, history mode (fresh or forked from a tree node), isolation (own worktree, own sandbox), an optional structured-output expectation, and a budget slice. The spawning authority and parent are recorded on the child, always.
+- **Identity**: a child is a full session — its own log, its own node under its parent in the tree, visible in mission control and the viewer, replayable and branchable like any other session. There are no lesser, invisible agents.
+- **Results return explicitly**: a child finishing produces a result event in the parent — its conclusions or structured output, attributed to the child — never a silent merge of the child's transcript into the parent's context. The parent's context stays clean; the child's full log stays one click away.
+- **Budgets roll up**: children draw from their parent's budget. A subagent can never spend what its parent does not have, and a goal's total cost is the whole tree under it.
+- **Policy only narrows**: a child's permissions and sandbox are at most its parent's, restricted further per spawn — never wider.
+- **Nesting requires authority**: a child spawns grandchildren only if it holds an authority of its own (a goal child inherits the goal's, within the same budget). No authority, no fan-out.
+- **Lifecycle is owned**: disposing a parent disposes its children; nothing orphans. Interrupt, snapshot, and resume work on any node of the tree.
 
 ### 6.4 Explicit subagents (/subagents)
 
@@ -1279,8 +1289,8 @@ No. The differentiators are one-command adoption of existing ecosystems, model-a
 **Will my existing setup work?**
 That is the core promise. Resources on the AAIF open standards — MCP, AGENTS.md, Agent Skills, Agent Plugins — install directly (section 5.2). Pi, OpenCode, DSH, and Claude Code resources go through the adoption compiler (section 4), which converts without touching the original and tells you exactly what did and did not carry over.
 
-**Why are there no built-in subagents?**
-Because delegation the model decides on is unpredictable spend and unpredictable behavior. Delegation exists — `/subagents`, workflows, goals — but the user invokes it, chooses the models, and sees every child in the tree (section 6).
+**Why is there no default subagent tool? Can it still do subagents?**
+Yes — arguably more elegantly than harnesses that bake them in. In Bolt a subagent is simply a session with a parent (section 6): same lifecycle, same log, same visibility as any session, with its own model, effort, tools, and placement, and results returning as explicit attributed events. What Bolt refuses is an ambient spawn tool in an ordinary session, because model-decided delegation there means unpredictable spend and behavior. Instead, spawning flows through four authorities — you (`/subagents`, `/btw`), scripts (workflows), goals (which hold spawn authority by default, bounded by their budget), and the system. You get everything built-in subagents offer, plus things they don't: every child inspectable and replayable, budgets that roll up the tree, per-child model choice, agent definitions swappable as plain files (section 6.7), and even other harnesses — Claude Code, Codex — driveable as children.
 
 **Why is there no memory system?**
 Ambient memory injects stale content invisibly, breaks the prompt cache, and makes behavior unexplainable. Bolt persists a small, visible, evidence-gated rule set (section 8) and offers recall only as an explicit pull (section 17.2). Memory extensions can be adopted by those who want them; they will never be core.
