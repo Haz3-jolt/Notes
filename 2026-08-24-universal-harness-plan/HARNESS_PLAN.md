@@ -393,19 +393,23 @@ Content outside this block remains user-owned.
 
 ## 8. Learning loop
 
-The learning system has two independent controls:
+The learning system is a ladder of three tiers, each with its own approval control:
 
 ```text
-approval: auto | manual
-scope: minimal | extensive
+tier 1  instructions        managed AGENTS.md block only      approval: auto | manual
+tier 2  skills and hooks    drafted skills, prompts, hooks    approval: auto | manual
+tier 3  extensions          generated native extensions       approval: auto | manual
 ```
 
 Default:
 
 ```text
-approval: auto
-scope: minimal
+tier 1: auto
+tier 2: manual
+tier 3: manual
 ```
+
+Approval semantics differ by what the artifact is, not by tier alone. For non-executable artifacts (instruction rules, skills, prompt templates), `auto` means the change activates directly. For executable artifacts (hooks, extensions), `auto` governs drafting only — generation, quarantine, capability manifest, typecheck, and tests run automatically, but activation always requires one explicit approval (section 8.4). There is no setting that auto-enables executable code.
 
 ### 8.1 Evidence sources
 
@@ -428,7 +432,7 @@ Do not learn global instructions directly from:
 
 Session summaries may identify candidates, but candidates require supporting user-originated evidence before promotion.
 
-### 8.2 Auto plus minimal
+### 8.2 Tier 1: managed instructions
 
 May add, consolidate, or remove rules only inside the managed global AGENTS.md block.
 
@@ -455,16 +459,19 @@ Commands:
 
 ### 8.3 Manual mode
 
-Every proposed change requires approval. The user can approve globally, approve for the current project, reject, or suppress future suggestions.
+When a tier is set to manual, every proposed change in that tier requires approval. The user can approve globally, approve for the current project, reject, or suppress future suggestions.
 
-### 8.4 Extensive learning
+### 8.4 Tiers 2 and 3: drafted artifacts
 
-Extensive scope may draft:
+Tier 2 may draft:
 
 - Skills
 - Prompt templates
 - Declarative workflows
 - Hooks
+
+Tier 3 may draft:
+
 - Native extensions
 
 Generated executable hooks and extensions are high risk. They must be:
@@ -476,7 +483,7 @@ Generated executable hooks and extensions are high risk. They must be:
 5. Shown as a complete diff.
 6. Explicitly approved before activation.
 
-Even in automatic extensive mode, executable hooks and extensions must never auto-enable.
+Even with tier 2 or tier 3 set to auto, executable hooks and extensions must never auto-enable.
 
 ### 8.5 Experimental self-extension loop
 
@@ -752,7 +759,7 @@ Capabilities:
 - Detach without stopping work
 - Reconnect after transport loss
 - Permission requests from any authorized client
-- Session branching
+- Tree-structured sessions with first-class branches
 - Checkpoint and rewind
 - Model switching
 - Context and cost visibility
@@ -780,6 +787,19 @@ The event-sourced log already makes conversation state replayable; checkpointing
 ### 14.3 Session budgets
 
 A session can carry token, cost, and wall-clock budgets. Crossing a budget pauses the loop loudly at the next safe boundary rather than killing work mid-write, and budget state is visible in every attached client. Cloud sessions inherit the resource leases in section 11 on top of this.
+
+### 14.4 Tree sessions
+
+A session is a tree of turns, not a list. Every event carries an id and a parent id; branching, rewind (section 14.2), and forked-history children (section 6.2) are all the same operation — start a new branch from an existing node. Nothing is ever destroyed by branching: the old branch remains addressable, compaction summarizes per branch (section 13), and clients render the tree rather than pretending the session is linear.
+
+### 14.5 Session storage
+
+Storage is split into a canonical log and a derived index, each in the format that suits its job:
+
+- **JSONL is the source of truth.** One append-only event log per session; the tree lives in the parent pointers. Appends are crash-safe (a torn write corrupts at most the final line, and recovery is truncation), the format is human-readable and greppable, it streams and tails naturally, it diffs and syncs cleanly from cloud workers, it needs no library to parse, and it is the lingua franca of every ecosystem Bolt adopts — session import (Phase 2) is largely a JSONL-to-JSONL translation.
+- **SQLite is a derived index, never authoritative.** Built from the logs, it serves everything that is miserable over flat files: cross-session queries for the session picker and viewer, full-text search over transcripts (FTS5), per-turn cost and token aggregation for insights, and fast tree navigation. Because it is derived, it carries no migration burden on history — a schema change means deleting the database and rebuilding it from the logs, never rewriting a log.
+- The write path is: append to JSONL first, then update the index. The index may lag; the log may not. If the two disagree, the log wins and the index is rebuilt.
+- Cloud workers durably append and upload only JSONL (section 11); each client maintains its own local index. SQLite files never cross machines.
 
 ## 15. Interface direction
 
@@ -827,6 +847,21 @@ Requirements:
 - Device pairing with revocable per-device credentials
 - Read-only observer mode for watching a session without steering rights
 - Notification payloads exclude secrets and full file contents
+
+### 15.4 Session viewer
+
+A DSH-style session viewer is the observability surface over the event log and its index:
+
+- Tree visualization of sessions and branches with jump-to-node
+- Event timeline with per-turn tokens, cost, latency, and model used
+- Tool call inspection: inputs, outputs, duration, sandbox profile applied
+- Permission decisions and classifier reasons (section 9.3), as logged
+- Compaction events with before and after context sizes
+- Cross-session search and filtering, backed by the SQLite index (section 14.5)
+- Live tail of running sessions, local and cloud, in the same view
+- Export of any subtree as a plain JSONL slice
+
+The viewer is a read-only projection over the same protocol as every other client; it introduces no second data path.
 
 ## 16. Compatibility and diagnostics
 
@@ -890,9 +925,10 @@ Initial versions should not add:
 - Local sandbox providers
 - Whole-runtime OCI execution
 - Compatibility doctor
+- Session viewer
 - Profile lockfiles
 - Session import
-- Auto/manual minimal learning
+- Tier 1 learning (managed instructions)
 - Built-in insights report (adopted pi-insights pipeline)
 - Checkpoint and rewind
 
@@ -910,10 +946,10 @@ Initial versions should not add:
 - Resource reconciler
 - Cost and lease enforcement
 
-### Phase 4: extensive learning
+### Phase 4: tiers 2 and 3 learning
 
-- Skill and hook drafting
-- Experimental self-extension generation
+- Tier 2 skill and hook drafting
+- Tier 3 experimental self-extension generation
 - Quarantine and capability review
 - Compatibility-aware extension updates
 - Public compatibility catalog
@@ -925,7 +961,7 @@ Initial versions should not add:
 2. Whether the default permission profile is `direct` or `auto`. Current lean: `auto`, since section 9.3 already positions it as the recommended midpoint; this must be settled before Phase 1 ships because the agent loop needs a permission posture from day one.
 3. Exact compatibility surface promised for the first Pi, OpenCode, and DSH release.
 4. Whether adopted extensions are always isolated or may be promoted to trusted in-process execution.
-5. Canonical session wire format and protocol versioning.
+5. Protocol versioning for the client wire format. The at-rest format is decided: JSONL event log as source of truth with a derived SQLite index (section 14.5).
 6. First cloud provider to support before generalizing all three.
 7. Global and project learning budgets.
 8. Whether cloud transfer moves a session or creates a fork.
