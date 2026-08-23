@@ -89,6 +89,14 @@ Most of what makes a great agent is the underlying model; the harness is what le
 
 Bolt has many capabilities and therefore many settings — and that is exactly why none of them may be required. Every option ships with a default good enough that a user who never opens a config file gets an excellent agent. Features are discovered while using the product (section 3.6), not chosen up front: there is no setup wizard, no mandatory profile selection, no decision gauntlet on first launch. The adoption scan is the entire onboarding. Configuration exists for the users who go looking for it.
 
+### 2.9 Batteries included, removable
+
+DSH's posture, applied to everything except the kernel: every shipped feature is a native extension that can be individually enabled or disabled. Side conversations, goal mode, plan mode, insights, learning, web access, the browser, the session viewer, tips, workflows, mission control, the review inbox, vision routing, voice — all of it is built on the public extension API (section 5), same as third-party code, and all of it can be turned off.
+
+- A disabled feature contributes zero prompt tokens, zero UI, and zero background work — disabling is subtraction, not hiding.
+- The kernel (section 2.3) is the one thing that is not a plugin: the event log, the loop, and the policy layer are not swappable, because that is where the guarantees live.
+- First-party features get no private APIs. If Bolt's own features can be built on the extension API, third-party ones can too — the shipped features are the proof the API is sufficient.
+
 ## 3. User experience
 
 ### 3.1 First launch
@@ -376,6 +384,8 @@ Example manifest:
 
 The runtime must not expose arbitrary kernel internals as public extension APIs.
 
+Bolt's own shipped features are built on this same API with no private back doors (section 2.9). The first-party features are the conformance suite: any capability they need is a capability the public API must provide.
+
 ## 6. Subagents
 
 ### 6.1 Default policy
@@ -592,6 +602,8 @@ Generated executable hooks and extensions are high risk. They must be:
 6. Explicitly approved before activation.
 
 Even with tier 2 or tier 3 set to auto, executable hooks and extensions must never auto-enable.
+
+The experimental scope may also enable and disable shipped features (section 2.9) based on usage evidence — a feature the user keeps reaching for manually gets enabled, one that only costs surface gets proposed for disabling. A feature toggle is non-executable configuration: under an auto tier it applies directly, always as a ledgered, regression-tracked change (section 8.7) surfaced as a tip (section 3.6), never as a silent shift in behavior.
 
 ### 8.5 Experimental self-extension loop
 
