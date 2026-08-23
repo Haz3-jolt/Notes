@@ -1051,7 +1051,7 @@ A session can carry token, cost, and wall-clock budgets. Crossing a budget pause
 
 ### 14.4 Tree sessions
 
-A session is a tree of turns, not a list. Every event carries an id and a parent id; branching, rewind (section 14.2), and forked-history children (section 6.3) are all the same operation — start a new branch from an existing node. Nothing is ever destroyed by branching: the old branch remains addressable, compaction summarizes per branch (section 13), and clients render the tree rather than pretending the session is linear.
+A session is a tree of turns, not a list. This is Pi's session model, adopted deliberately: Pi already stores sessions as an id/parentId tree with in-place branching (`/tree`, `/fork`, `/clone`) and branch summarization. Every event carries an id and a parent id; branching, rewind (section 14.2), and forked-history children (section 6.3) are all the same operation — start a new branch from an existing node. Nothing is ever destroyed by branching: the old branch remains addressable, compaction summarizes per branch (section 13), and clients render the tree rather than pretending the session is linear.
 
 ### 14.5 Protocol and SDK
 
@@ -1075,7 +1075,7 @@ Commands are RPCs, and that closes a gap other harnesses have: in Pi, slash comm
 
 Storage is split into a canonical log and a derived index, each in the format that suits its job:
 
-- **JSONL is the source of truth.** One append-only event log per session; the tree lives in the parent pointers. Appends are crash-safe (a torn write corrupts at most the final line, and recovery is truncation), the format is human-readable and greppable, it streams and tails naturally, it diffs and syncs cleanly from cloud workers, it needs no library to parse, and it is the lingua franca of every ecosystem Bolt adopts — session import is largely a JSONL-to-JSONL translation.
+- **JSONL is the source of truth.** One append-only event log per session; the tree lives in the parent pointers. This is Pi's session format in structure — append-only JSONL with an id/parentId tree — kept close enough that Pi session import is near-lossless. Appends are crash-safe (a torn write corrupts at most the final line, and recovery is truncation), the format is human-readable and greppable, it streams and tails naturally, it diffs and syncs cleanly from cloud workers, it needs no library to parse, and it is the lingua franca of every ecosystem Bolt adopts — session import is largely a JSONL-to-JSONL translation.
 - **Per-session JSON sidecar caches are the default index.** The pi-insights pattern (section 8.6): deterministic stats extracted once per session and cached as small JSON files. This covers the session picker, insights aggregation, and most viewer queries with no database at all.
 - **SQLite is the escalation for search, never authoritative.** The one workload sidecar caches cannot serve is full-text search over transcript content across thousands of sessions; grep over gigabytes of logs is seconds, FTS5 is milliseconds with ranking. When viewer search demands it, the index is built from the logs already on disk. Because it is derived, it carries no migration burden on history — a schema change means deleting the database and rebuilding, never rewriting a log.
 - The write path is: append to JSONL first, then update whatever index exists. An index may lag; the log may not. If they disagree, the log wins and the index is rebuilt.
@@ -1319,7 +1319,7 @@ The initial product thesis is proven when a user can:
 DSH makes everything a plugin, including the loop, the log, and the policy layer. Bolt adopts that posture for features (section 2.9) but keeps the kernel fixed, because the guarantees — log-is-truth, replay, a security boundary plugins cannot replace — are properties of a core nothing can swap out. DSH's flexibility serves framework builders; Bolt is a product.
 
 **Why not just fork Pi?**
-Bolt reuses Pi where Pi is right — the agent loop, compaction, the provider API, prompt minimalism, cache discipline. What Pi does not have is the rest of the product: the adoption compiler, the session daemon with terminal, web, mobile, and IDE clients, tree sessions, placements, sandboxing as policy, and the learning loop. Pi is an ingredient, not the product.
+Bolt reuses Pi where Pi is right — the agent loop, compaction, the provider API, prompt minimalism, cache discipline, and its tree-session JSONL format, which Bolt keeps nearly as-is (section 14.6). What Pi does not have as one product: the adoption compiler, a single authoritative daemon with terminal, web, mobile, and IDE clients speaking one protocol (Pi's core is a TUI; web front-ends and daemons exist as separate community projects), placements with cloud transfer, sandboxing as enforced policy, and the learning loop. Pi is an ingredient, not the product.
 
 **Is this another Claude Code clone?**
 No. The differentiators are one-command adoption of existing ecosystems, model-agnosticism with per-role model and effort selection, tree sessions, no default subagents, and observability down to every logged decision (section 1).
