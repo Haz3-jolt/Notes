@@ -442,7 +442,7 @@ Exactly four authorities may create a child session:
 - **A goal**: a goal holds spawn authority by default — setting a goal is the act of delegation. Inside `/goal` (section 3.7) the loop spawns test runners, reviewers, and parallel fix attempts on its own judgment, always bounded by the goal's budget; the authority can be withheld per goal for users who want a single-session run. Outside goal mode, an ordinary session never gains this by default.
 - **The system**: bounded internal workers for explicit operations like `/adopt` (section 4.2).
 
-Outside these four, nothing spawns.
+Outside these four, nothing spawns. Mechanically, an authority is roster membership (section 7.4): holding spawn authority means the spawn tool exists in that session's tool list; sessions without the authority do not carry a disabled tool — they carry no tool.
 
 ### 6.3 The child contract
 
@@ -585,6 +585,17 @@ standard  shell, read, edit, write, web_search, fetch_content
 - There is no subagent tool, task list tool, or planning tool in the roster: delegation is user-invoked (section 6.4), and planning is a mode (section 3.4), not a tool the model juggles.
 - Extensions and MCP servers add tools, and every tool is toggleable per session.
 - A tool that is unavailable contributes zero prompt tokens (section 7.1) — profiles are subtractive from nothing, not additive onto a bloated base.
+
+To keep the roster honest, be precise about what a tool is. Bolt has four invocation directions, and only the first is a tool:
+
+- **Model → harness: tools.** The model decides to call these mid-turn. Very few things are tools: the core roster, web access, the browser, MCP bridges, discovery, and the harness-control surface.
+- **User → harness: commands.** `/goal`, `/btw`, `/subagents`, `/learn`, `/adopt`, `/insights` — RPCs the user invokes (section 14.5). The model never calls a command; it can reach the same RPCs only through the harness-control tool when asked.
+- **Harness → model: roles.** Compaction, tips, facet extraction, vision description — the harness calling a model, the inverse arrow of a tool (section 2.7).
+- **Harness → itself: machinery.** Hooks, the learning ledger, the tips engine, the reconciler — nothing invokes these conversationally.
+
+Most extensions therefore add no tools at all: they register commands, hooks, roles, renderers, or panels. `registerTool` is for the minority that genuinely give the model a new mid-turn capability.
+
+Some tools are mode-summoned rather than profile-resident: spawn authority (section 6.2) mechanically means the spawn tool is present in that session's roster — there in a goal session, absent everywhere else — and plan mode (section 3.4) surfaces a submit-plan tool only while planning. Authority is roster membership, enforced by absence, at zero tokens when absent.
 
 ### 7.5 Model-side progressive disclosure
 
