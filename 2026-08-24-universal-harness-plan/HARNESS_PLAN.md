@@ -81,6 +81,7 @@ Most of what makes a great agent is the underlying model; the harness is what le
 - Pi's provider API is the model abstraction; no second abstraction is layered on top (section 18).
 - Every model-calling role is independently selectable: the main agent loop, side conversations (/btw), adoption conversion workers, the permission classifier, compaction summarization, vision description, OCR, speech recognition, speech synthesis, facet extraction, and insight generation.
 - Reasoning effort is first-class alongside model choice: every role and every subagent child carries an effort level (low through max), switchable mid-session and logged as a config change.
+- Per section 2.8, every role defaults without configuration: the main model where capability allows, the cheapest capable model for mechanical roles (tips, OCR, facet extraction). Nobody has to configure a role to use a feature.
 - The kernel makes no vendor-specific prompt assumptions. Provider quirks live in provider adapters.
 - A model lacking a capability a role requires (tool calling, structured output) fails loudly at selection time instead of degrading silently.
 - Local models are first-class providers, subject to the same capability checks.
@@ -217,6 +218,8 @@ Rules that keep tips helpful instead of annoying:
 - A tip for a feature the user already uses is never shown; a dismissed tip never returns.
 - Rate-limited, one line, never blocking, never a modal.
 - Tips guide toward features, never toward required setup — per section 2.8, ignoring every tip must still leave an excellent agent.
+- Tips are a model role (section 2.7), defaulting to the cheapest available model, settable with `/tip model`. The tip model reads Bolt's own shipped feature docs and the session's current activity, so suggestions are grounded in what actually exists — never a hallucinated feature.
+- Tips are a feature like any other (section 2.9): `/tip off` disables them entirely, to zero tokens and zero UI.
 
 ### 3.7 Goal mode (/goal)
 
@@ -633,7 +636,7 @@ Generated executable hooks and extensions are high risk. They must be:
 
 Even with tier 2 or tier 3 set to auto, executable hooks and extensions must never auto-enable.
 
-The experimental scope may also enable and disable shipped features (section 2.9) based on usage evidence — a feature the user keeps reaching for manually gets enabled, one that only costs surface gets proposed for disabling. A feature toggle is non-executable configuration: under an auto tier it applies directly, always as a ledgered, regression-tracked change (section 8.7) surfaced as a tip (section 3.6), never as a silent shift in behavior.
+Tier 3 (experimental) may also enable and disable shipped features (section 2.9) based on usage evidence — a feature the user keeps reaching for manually gets enabled, one that only costs surface gets proposed for disabling. A feature toggle is non-executable configuration: under an auto tier it applies directly, always as a ledgered, regression-tracked change (section 8.7) surfaced as a tip (section 3.6), never as a silent shift in behavior.
 
 ### 8.5 Experimental self-extension loop
 
@@ -1128,7 +1131,7 @@ Beyond the core, these are the features Bolt's own primitives make uniquely poss
 - **Cost autopilot**: close the loop on spend analysis — route mechanical tasks to cheaper models, escalate on failure, and log every routing decision with its reason.
 - **Guardrails from your own mistakes**: a repeated failure pattern detected by insights becomes a drafted tier 2 hook that blocks or warns. The agent stops making the user's recurring mistakes, specifically.
 - **Cross-session recall**: on request, search past session facets to reapply an old fix instead of re-deriving it. Strictly pull-based — nothing from past sessions enters the prompt uninvited (section 8.1).
-- **Daily digest**: an end-of-day summary of what every session did, what it cost, and what is waiting on the user.
+- **Daily digest**: an end-of-day summary of what every session did, what it cost, and what is waiting on the user — delivered over the same notification channel as section 15.3, not a separate system.
 
 ### 17.3 From the daemon and placements
 
@@ -1237,3 +1240,32 @@ The initial product thesis is proven when a user can:
 9. Detach and reconnect without losing work.
 10. Update or roll back the adopted plugin safely.
 11. Watch and steer a cloud session from the mobile app, including answering a permission request from the phone.
+
+## 22. FAQ
+
+**Why not just use DeepSeek Harness?**
+DSH makes everything a plugin, including the loop, the log, and the policy layer. Bolt adopts that posture for features (section 2.9) but keeps the kernel fixed, because the guarantees — log-is-truth, replay, a security boundary plugins cannot replace — are properties of a core nothing can swap out. DSH's flexibility serves framework builders; Bolt is a product.
+
+**Why not just fork Pi?**
+Bolt reuses Pi where Pi is right — the agent loop, compaction, the provider API, prompt minimalism, cache discipline. What Pi does not have is the rest of the product: the adoption compiler, the session daemon with terminal, web, mobile, and IDE clients, tree sessions, placements, sandboxing as policy, and the learning loop. Pi is an ingredient, not the product.
+
+**Is this another Claude Code clone?**
+No. The differentiators are one-command adoption of existing ecosystems, model-agnosticism with per-role model and effort selection, tree sessions, no default subagents, and observability down to every logged decision (section 1).
+
+**Will my existing setup work?**
+That is the core promise. Resources on the AAIF open standards — MCP, AGENTS.md, Agent Skills, Agent Plugins — install directly (section 5.2). Pi, OpenCode, DSH, and Claude Code resources go through the adoption compiler (section 4), which converts without touching the original and tells you exactly what did and did not carry over.
+
+**Why are there no built-in subagents?**
+Because delegation the model decides on is unpredictable spend and unpredictable behavior. Delegation exists — `/subagents`, workflows, goals — but the user invokes it, chooses the models, and sees every child in the tree (section 6).
+
+**Why is there no memory system?**
+Ambient memory injects stale content invisibly, breaks the prompt cache, and makes behavior unexplainable. Bolt persists a small, visible, evidence-gated rule set (section 8) and offers recall only as an explicit pull (section 17.2). Memory extensions can be adopted by those who want them; they will never be core.
+
+**Where does my data live?**
+Session logs are JSONL files on your machine (section 14.6). Cloud workers append and upload logs to storage you control; indexes and caches are derived locally and never leave. Secrets are redacted at log-write time (section 2.4).
+
+**Which model should I use?**
+Any — that is the point. Every role takes any capable provider, local models included, and the personal model bench (sections 16.3, 19) answers the question empirically from your own sessions rather than from benchmarks.
+
+**Do I have to configure all of this?**
+No (section 2.8). Everything ships with working defaults, features introduce themselves as one-line tips while you work (section 3.6), and anything you don't use can be disabled — or will eventually offer to disable itself (section 8.4).
