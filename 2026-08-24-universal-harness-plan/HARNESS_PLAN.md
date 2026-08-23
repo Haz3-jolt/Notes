@@ -1,4 +1,4 @@
-# Universal Harness Plan
+# Bolt: Universal Agent Harness Plan
 
 Status: Working product plan
 
@@ -7,6 +7,8 @@ Updated: 2026-08-24
 ## 1. Product thesis
 
 Build a universal coding-agent harness that adopts existing agent ecosystems instead of forcing users to migrate manually.
+
+The product is named Bolt. The logo is a screw bolt drawn in a lightning-bolt silhouette: fast, and able to bolt any ecosystem's features onto one runtime.
 
 The product promise is:
 
@@ -19,7 +21,8 @@ The harness is not another generic Claude Code clone. Its differentiators are:
 3. Explicit, non-bypassable sandbox profiles using operating-system or OCI isolation.
 4. Minimal prompts and no default model-driven subagent delegation.
 5. Pi-compatible compaction behavior.
-6. An optional learning loop that maintains concise user instructions and can draft skills, hooks, and experimental self-extensions.
+6. An optional learning loop, grounded in an insights engine over real session history, that maintains concise user instructions and can draft skills, hooks, and experimental self-extensions.
+7. Model-agnostic by construction: the frontier model is the magic, the harness is the enabler, and every role that calls a model is provider-swappable.
 
 ## 2. Product principles
 
@@ -71,6 +74,16 @@ Explicit system operations such as `/adopt` may use bounded internal conversion 
 
 Permission hooks alone are not a security boundary. Foreign extensions, MCP servers, hooks, tools, and commands must not be able to bypass required isolation by directly using host APIs.
 
+### 2.7 Model-agnostic by construction
+
+Most of what makes a great agent is the underlying model; the harness is what lets the model act. Bolt's value must survive a model swap:
+
+- Pi's provider API is the model abstraction; no second abstraction is layered on top (section 17).
+- Every model-calling role is independently selectable: the main agent loop, adoption conversion workers, the permission classifier, compaction summarization, facet extraction, and insight generation.
+- The kernel makes no vendor-specific prompt assumptions. Provider quirks live in provider adapters.
+- A model lacking a capability a role requires (tool calling, structured output) fails loudly at selection time instead of degrading silently.
+- Local models are first-class providers, subject to the same capability checks.
+
 ## 3. User experience
 
 ### 3.1 First launch
@@ -114,15 +127,15 @@ Interactive:
 Direct installation:
 
 ```bash
-harness install pi @juicesharp/pi-web-tools
-harness install opencode opencode-wakatime
-harness install dsh @vendor/dsh-plugin
+bolt install pi @juicesharp/pi-web-tools
+bolt install opencode opencode-wakatime
+bolt install dsh @vendor/dsh-plugin
 ```
 
 Optional passthrough form:
 
 ```bash
-harness adopt -- pi install @juicesharp/pi-web-tools
+bolt adopt -- pi install @juicesharp/pi-web-tools
 ```
 
 ### 3.3 Adoption result
@@ -145,7 +158,7 @@ Permissions requested
   Network: api.example.com
 
 Source retained at:
-  ~/.harness/adopted/pi/@juicesharp/pi-web-tools/1.4.2/source
+  ~/.bolt/adopted/pi/@juicesharp/pi-web-tools/1.4.2/source
 ```
 
 ## 4. Adoption compiler
@@ -207,7 +220,7 @@ There is no automatic substitution between levels.
 ### 4.4 Adopted package storage
 
 ```text
-~/.harness/adopted/
+~/.bolt/adopted/
   <source-runtime>/
     <package-name>/
       <version>/
@@ -370,10 +383,10 @@ Rules:
 The global file should remain intentionally small. Automated learning may edit only a managed block:
 
 ```md
-<!-- harness:auto:start -->
+<!-- bolt:auto:start -->
 - Prefer the smallest relevant verification command first.
 - Report commands run and their outcomes.
-<!-- harness:auto:end -->
+<!-- bolt:auto:end -->
 ```
 
 Content outside this block remains user-owned.
@@ -485,6 +498,36 @@ Additional controls:
 - Mandatory capability review
 - One-command disable and rollback
 - Provenance linking the generated extension to source sessions and evidence
+
+### 8.6 Insights engine
+
+The evidence layer for the learning loop is an adopted implementation of `observal/pi-insights` (the Observal Pi extension), promoted from extension to a built-in `/insights` command.
+
+```text
+/insights
+/insights --refresh
+/insights --since 7d
+/insights --md
+```
+
+The pipeline is kept as implemented there:
+
+1. Scan all session logs.
+2. Extract deterministic per-session stats (tool counts, tokens, cost, languages, git activity, response times), cached permanently.
+3. LLM facet extraction per session (goals, outcomes, satisfaction, friction), cached until `--refresh`.
+4. Aggregate with decay weighting (10-day half-life), compute week-over-week diffs, detect anomalies and trajectories, distinguish resolved from ongoing friction, and gather user context (AGENTS.md, installed skills, extensions, packages) so suggestions never propose what already exists.
+5. Generate report sections with parallel prompts plus a synthesis pass, rendered as a self-contained HTML or Markdown report.
+
+Properties Bolt depends on:
+
+- Temporal awareness: diffs and trajectories, not a static portrait of usage.
+- Negative suggestions: a "stop doing" section with concrete alternatives, not just additions.
+- Model spend analysis: overspend and underspend detection with estimated savings, which feeds per-role model selection (section 2.7).
+- Deterministic stats kept separate from model-generated facets, each cached independently.
+
+Relationship to learning (section 8.1): the insights report is a candidate generator, not an evidence source. A suggestion appearing in a report still requires user-originated evidence before promotion into the managed AGENTS.md block; the user accepting a report suggestion is that evidence.
+
+Licensing: pi-insights is AGPL-3.0-only. Bundling it requires either relicensing by its copyright holders or keeping Bolt's insights module under a compatible license; this folds into open decision 9.
 
 ## 9. Permission model
 
@@ -710,6 +753,7 @@ Capabilities:
 - Reconnect after transport loss
 - Permission requests from any authorized client
 - Session branching
+- Checkpoint and rewind
 - Model switching
 - Context and cost visibility
 - Sandbox status
@@ -718,6 +762,24 @@ Capabilities:
 - Push notifications for permission requests, blockers, and completion
 
 The web, terminal, and mobile clients must not implement separate agent loops.
+
+### 14.1 Session placement
+
+Mirroring the Claude app's mode structure (chat, cowork, code — with code split into remote control, local, and cloud), Bolt organizes its clients around one Code surface with three session placements:
+
+- `local`: the agent loop runs on the user's machine, driven from the terminal, desktop, or local web client.
+- `cloud`: the session runs on a cloud worker in an OCI sandbox (sections 11 and 12); any client can spawn one.
+- `attach`: remote control of an existing session from phone or web — a projection with steering rights, never a second loop (section 15.3).
+
+Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. A chat-style surface is cheap to expose — it is a session with zero tools — and may ship whenever convenient. A general cowork-style assistant surface is out of scope initially (section 17).
+
+### 14.2 Checkpoint and rewind
+
+The event-sourced log already makes conversation state replayable; checkpointing extends that to the workspace. Every turn that modifies files records a workspace snapshot, and a session can rewind to any turn — conversation and files together, or either alone. Snapshots use copy-on-write where the filesystem supports it, with git-based shadow commits as the fallback. Rewind never rewrites the user's own git history.
+
+### 14.3 Session budgets
+
+A session can carry token, cost, and wall-clock budgets. Crossing a budget pauses the loop loudly at the next safe boundary rather than killing work mid-write, and budget state is visible in every attached client. Cloud sessions inherit the resource leases in section 11 on top of this.
 
 ## 15. Interface direction
 
@@ -805,6 +867,7 @@ Initial versions should not add:
 - A large built-in workflow language
 - Automatic activation of generated executable code
 - Silent emulation of unsupported foreign APIs
+- A general cowork-style assistant surface before the Code surface is excellent
 
 ## 18. Delivery phases
 
@@ -830,6 +893,8 @@ Initial versions should not add:
 - Profile lockfiles
 - Session import
 - Auto/manual minimal learning
+- Built-in insights report (adopted pi-insights pipeline)
+- Checkpoint and rewind
 
 ### Phase 3: remote execution
 
@@ -852,10 +917,11 @@ Initial versions should not add:
 - Quarantine and capability review
 - Compatibility-aware extension updates
 - Public compatibility catalog
+- Personal model bench: replay real workflows from insights data to compare models on the user's own tasks
 
 ## 19. Open decisions
 
-1. Product name and package namespace.
+1. Product name: Bolt (screw-bolt-as-lightning-bolt logo). Decided as the working name; the package namespace and npm scope remain open.
 2. Whether the default permission profile is `direct` or `auto`. Current lean: `auto`, since section 9.3 already positions it as the recommended midpoint; this must be settled before Phase 1 ships because the agent loop needs a permission posture from day one.
 3. Exact compatibility surface promised for the first Pi, OpenCode, and DSH release.
 4. Whether adopted extensions are always isolated or may be promoted to trusted in-process execution.
@@ -863,7 +929,7 @@ Initial versions should not add:
 6. First cloud provider to support before generalizing all three.
 7. Global and project learning budgets.
 8. Whether cloud transfer moves a session or creates a fork.
-9. Licensing and attribution policy for reused Pi code.
+9. Licensing and attribution policy for reused Pi code, and license compatibility or relicensing for the AGPL-3.0 pi-insights implementation (section 8.6).
 10. Whether the mobile app connects through a hosted relay service or direct daemon pairing first.
 
 ## 20. Success criteria
