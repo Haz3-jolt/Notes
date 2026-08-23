@@ -427,6 +427,21 @@ Content outside this block remains user-owned.
 
 A DSH-style minimal profile ships alongside the standard one: two tools (shell and file editing), the base prompt, nothing else. It is the smallest thing that is still Bolt — for cheap models, benchmarking, and users who want the model to do the thinking rather than the harness.
 
+### 7.4 Tool surface
+
+The model's tool surface is a profile decision, and the default roster stays deliberately small — every added tool costs prompt tokens and decision quality:
+
+```text
+chat      (none)
+minimal   shell, edit
+standard  shell, read, edit, write, web_search, fetch_content
+```
+
+- The browser (section 10.5) is an opt-in addition to any profile, not a standard tool.
+- There is no subagent tool, task list tool, or planning tool in the roster: delegation is user-invoked (section 6.4), and planning is a mode (section 3.4), not a tool the model juggles.
+- Extensions and MCP servers add tools, and every tool is toggleable per session.
+- A tool that is unavailable contributes zero prompt tokens (section 7.1) — profiles are subtractive from nothing, not additive onto a bloated base.
+
 ## 8. Learning loop
 
 The learning system is a ladder of three tiers, each with its own approval control:
@@ -877,6 +892,8 @@ The SDK is deliberately thin because the daemon owns all behavior; a client is t
 - **Presence**: who else is attached to the session, so simultaneous terminal, web, and mobile clients can indicate each other.
 
 All client SDKs are generated from one protocol schema — the TypeScript, Swift, Kotlin, and Rust clients are codegen over the same definitions, not four hand-written libraries. Transports are pluggable beneath the same surface: Unix socket locally, WebSocket through the relay remotely. MCP remains the protocol for external tool servers; Bolt is an MCP client, never a replacement (section 18).
+
+Commands are RPCs, and that closes a gap other harnesses have: in Pi, slash commands live inside the TUI process, so the model has no path to them — the user can never say "resume yesterday's session about the auth bug" and have the agent do it. In Bolt, every slash command is a thin client wrapper over a daemon RPC, and a scoped harness-control tool exposes that same RPC surface to the model on request. Anything the user can do with a command, the agent can do when asked in natural language — find and resume a session, branch, compact, switch model — under the session's normal permission policy, with every harness action it takes logged like any other tool call.
 
 ### 14.6 Session storage
 
