@@ -361,6 +361,7 @@ registerCommand
 registerProvider
 registerSkill
 registerHook
+registerTheme
 registerRenderer
 registerWebPanel
 on
@@ -385,6 +386,29 @@ Example manifest:
 The runtime must not expose arbitrary kernel internals as public extension APIs.
 
 Bolt's own shipped features are built on this same API with no private back doors (section 2.9). The first-party features are the conformance suite: any capability they need is a capability the public API must provide.
+
+### 5.1 Resource types
+
+The full set of things a user or package can add to Bolt:
+
+- **Extensions**: code registering tools, commands, providers, renderers, panels
+- **Skills**: instruction documents loaded on selection
+- **Hooks**: lifecycle interceptors
+- **Prompt templates**: reusable parameterized prompts
+- **Themes**: TUI and web appearance
+- **MCP servers**: external tool connectivity
+- **AGENTS.md**: project and global context and instructions
+
+### 5.2 Open standards first
+
+Bolt implements the AAIF-stewarded standards natively rather than inventing formats — this is what the "no another skill format" non-goal (section 18) looks like in the affirmative:
+
+- **MCP** for external tool connectivity
+- **AGENTS.md** for instructions and context
+- **Agent Skills** for skill documents
+- **Agent Plugins 1.0** as a first-class install format: a standard plugin — skills plus MCP servers in one directory — installs directly at compatibility level `native`, no conversion pass needed
+
+The adoption compiler (section 4) exists for the proprietary and divergent formats; anything already on the open standards walks in the front door. As ecosystems converge on Agent Plugins, Bolt's adoption burden shrinks by itself — betting on the standard is betting on our own future workload going down.
 
 ## 6. Subagents
 
