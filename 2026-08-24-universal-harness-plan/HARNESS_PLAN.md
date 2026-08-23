@@ -66,7 +66,7 @@ Logged does not mean leaked: secrets are redacted at log-write time. Provider re
 
 ### 2.5 No default subagents
 
-The normal agent does not receive a subagent tool or subagent instructions by default. Subagents are opt-in capabilities.
+The normal agent does not receive a subagent tool or subagent instructions by default. Delegation is user-invoked (section 6.4), never something the model decides.
 
 Explicit system operations such as `/adopt` may use bounded internal conversion workers. These workers are not exposed to the normal model as general delegation tools.
 
@@ -160,6 +160,23 @@ Permissions requested
 Source retained at:
   ~/.bolt/adopted/pi/@juicesharp/pi-web-tools/1.4.2/source
 ```
+
+### 3.4 Plan mode
+
+An optional propose, approve, execute flow: the agent produces a plan before touching anything, and execution starts only after approval.
+
+Plan review is not a yes/no prompt. Plans open in a Plannotator-style annotation surface — terminal summary plus a local browser UI — where the user comments on exact text, marks steps for removal, edits the plan directly, or attaches a general note, then approves or sends the annotations back as structured feedback for revision. The same annotation surface reviews diffs from the review inbox (section 17.3).
+
+### 3.5 Project directory
+
+Bolt reads a `.bolt/` directory in the project alongside the global `~/.bolt/`:
+
+- Project-scoped skills, hooks, extensions, and prompt templates
+- The team profile lockfile (section 17.4)
+- Project settings and sandbox policy defaults
+- Project rules stay project-scoped: nothing in `.bolt/` is promoted into global learning (section 8.2)
+
+Settings resolve project over global; capabilities and sandbox restrictions can only narrow from global to project, never widen.
 
 ## 4. Adoption compiler
 
@@ -355,6 +372,19 @@ Each backend advertises capabilities such as continuation, history fork, structu
 
 An adopted plugin may register subagent capabilities, but activation must show that it enables model-visible delegation. Installing a plugin must not silently change the default single-agent posture.
 
+### 6.4 Explicit subagents (/subagents)
+
+Delegation is something the user invokes, not something the model decides. `/subagents` spawns child sessions over the daemon RPC — each with its own chosen model, tools, and placement — for jobs like a cross-model review or a cheap-model test sweep. Children appear in mission control and in the session tree like any other session. There is no subagent tool in the model's hands by default and no delegation prose in the prompt, ever (section 2.5).
+
+### 6.5 Side conversations (/btw)
+
+`/btw` opens a threaded side conversation: a side-channel branch of the session tree that sees everything the main agent has done, answers immediately while the main agent keeps working, and is never seen by the main agent.
+
+- Threads are first-class: `/btw <question>` starts one, `/btw continue [thread]` resumes it, and multiple named threads coexist.
+- A side thread can use tools under the session's normal permission and sandbox policy.
+- Side-channel branches are excluded from main-branch compaction (section 13).
+- A thread's conclusions can be injected back into the main conversation as an explicit event, never silently.
+
 ## 7. Prompt design
 
 ### 7.1 System prompt
@@ -378,6 +408,8 @@ Rules:
 - Dynamic information should not invalidate the stable prompt-cache prefix unnecessarily. The current user request and other per-turn content are appended after the stable prefix, never inside it.
 - If a capability is unavailable for a request, it contributes zero prompt tokens.
 
+Cache discipline is the enforcement mechanism behind these rules, and Pi's hit rate is the target because Pi follows it strictly: provider prompt caches match on the longest unchanged prefix, so the prompt is built append-only. The system prompt and tool schemas freeze at session start; skills, context, and injected instructions arrive as appended messages, never as edits to earlier content; nothing already sent is reordered, rewritten, or timestamped. The only deliberate cache break is compaction. Any feature that would mutate the prefix mid-session must find an append-only design instead.
+
 ### 7.2 Global AGENTS.md
 
 The global file should remain intentionally small. Automated learning may edit only a managed block:
@@ -390,6 +422,10 @@ The global file should remain intentionally small. Automated learning may edit o
 ```
 
 Content outside this block remains user-owned.
+
+### 7.3 Minimal profile
+
+A DSH-style minimal profile ships alongside the standard one: two tools (shell and file editing), the base prompt, nothing else. It is the smallest thing that is still Bolt — for cheap models, benchmarking, and users who want the model to do the thinking rather than the harness.
 
 ## 8. Learning loop
 
@@ -631,6 +667,10 @@ If confinement is required and no provider is available, execution must fail. It
 
 Whole-runtime or extension-process isolation is required for untrusted adopted extensions. Sandboxing only shell commands does not constrain an extension that directly uses filesystem or process APIs.
 
+### 10.5 Sandboxed browser
+
+Browser and computer use are tools that live inside the sandbox, not beside it: the browser runs under the session's sandbox profile, its egress under the same network allowlists, its downloads inside the workspace mounts. The agent can drive the app it is building, take screenshots, and do web research — with no side door around network policy.
+
 ## 11. OCI runtime
 
 OCI is the common execution substrate for local containers and cloud workers.
@@ -747,6 +787,7 @@ Required behavior:
 - Structured continuation summary
 - Cumulative read-file and modified-file tracking
 - Branch summarization
+- Side-channel exclusion: /btw threads never enter main-branch compaction
 - Full original history retained outside the compacted model surface
 - Extension interception for custom compaction
 - Compaction usage included in cost and token totals
@@ -760,6 +801,7 @@ One authoritative daemon owns the session. Clients are projections over the same
 - Terminal UI
 - Web UI
 - Mobile app
+- IDE extension (VS Code, JetBrains)
 - Headless client
 - SDK
 - Remote control client
@@ -790,7 +832,9 @@ Mirroring the Claude app's mode structure (chat, cowork, code — with code spli
 - `cloud`: the session runs on a cloud worker in an OCI sandbox (sections 11 and 12); any client can spawn one.
 - `attach`: remote control of an existing session from phone or web — a projection with steering rights, never a second loop (section 15.3).
 
-Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. A chat-style surface is cheap to expose — it is a session with zero tools — and may ship whenever convenient. A general cowork-style assistant surface is out of scope initially (section 18).
+Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. A chat surface is cheap to expose because it is a session with zero tools: `bolt web` serves the web client on localhost, and — DSH-style — a chat profile turns it into a local chat app in the browser. A general cowork-style assistant surface is out of scope initially (section 18).
+
+Parallel sessions on the same repository isolate their working state in git worktrees, so mission control (section 17.3) can run several agents against one repo without them fighting over files.
 
 ### 14.2 Checkpoint and rewind
 
@@ -931,6 +975,8 @@ Reports:
 
 Publish tested compatibility status for real plugins. Plugin authors should be able to run the same conformance suite in their CI.
 
+Seed the catalog with what people demonstrably install across ecosystems: documentation retrieval, persistent memory, planning workflows, side-conversation channels, browser control, git workflows, config sync, and usage analytics. The proven winners get adopted, not rebuilt.
+
 ### 16.3 Deterministic replay
 
 Because sessions are event-sourced, a recorded session is a test fixture for free. Replaying logged sessions against a new build — with model responses stubbed from the log — catches regressions in tool execution, compaction, permission decisions, and rendering without spending a token. The same mechanism, with live models substituted for the recorded ones, is the personal model bench (section 19): the user's own workflows become the benchmark suite.
@@ -961,6 +1007,7 @@ Beyond the core, these are the features Bolt's own primitives make uniquely poss
 ### 17.4 From adoption and sandboxing
 
 - **Team profile in the repo**: a checked-in profile lockfile gives a new teammate the team's exact skills, hooks, adopted packages, and sandbox policy in one run.
+- **Personal config sync**: the user's own skills, hooks, and settings follow them across their machines — distinct from the team profile.
 - **Privacy switch**: per-session zero-egress mode with a local model, enforced by sandbox network policy rather than promises.
 - **Blind secrets**: the model reads placeholders; real values are injected only at execution time inside the sandbox. The agent uses credentials it never sees.
 
