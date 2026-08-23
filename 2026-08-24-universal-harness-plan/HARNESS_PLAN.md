@@ -792,14 +792,31 @@ A session can carry token, cost, and wall-clock budgets. Crossing a budget pause
 
 A session is a tree of turns, not a list. Every event carries an id and a parent id; branching, rewind (section 14.2), and forked-history children (section 6.2) are all the same operation — start a new branch from an existing node. Nothing is ever destroyed by branching: the old branch remains addressable, compaction summarizes per branch (section 13), and clients render the tree rather than pretending the session is linear.
 
-### 14.5 Session storage
+### 14.5 Protocol and SDK
+
+The SDK is deliberately thin because the daemon owns all behavior; a client is transport plus rendering. The surface is:
+
+- **RPC** for requests with answers: session lifecycle (create, branch, transfer, dispose), send, interrupt, permission responses, configuration, placement moves.
+- **Event stream** for the session tree: subscribe from any node, tail live turns. This is the JSONL log over the wire, nothing more.
+- **Snapshot plus tail** so attachment is cheap: a client joining a long session fetches a state snapshot and streams from that point, instead of replaying thousands of events.
+- **Resumable cursors**: every event has an id; reconnection resumes from the last acknowledged id with at-least-once delivery, so a phone losing signal misses nothing.
+- **Idempotency keys on sends**: a client retrying over a flaky network must never double-send a message or a permission grant.
+- **A blob channel** separate from the event stream for large payloads — artifacts, images, file uploads. The event log carries references, never megabytes.
+- **Auth and pairing**: revocable per-device credentials with capability scopes; an observer credential can stream but not steer (section 15.3).
+- **Capability negotiation**: client and daemon exchange protocol version and feature sets on connect, and mismatches degrade loudly (open decision 5 covers the versioning scheme).
+- **Presence**: who else is attached to the session, so simultaneous terminal, web, and mobile clients can indicate each other.
+
+All client SDKs are generated from one protocol schema — the TypeScript, Swift, Kotlin, and Rust clients are codegen over the same definitions, not four hand-written libraries. Transports are pluggable beneath the same surface: Unix socket locally, WebSocket through the relay remotely. MCP remains the protocol for external tool servers; Bolt is an MCP client, never a replacement (section 17).
+
+### 14.6 Session storage
 
 Storage is split into a canonical log and a derived index, each in the format that suits its job:
 
-- **JSONL is the source of truth.** One append-only event log per session; the tree lives in the parent pointers. Appends are crash-safe (a torn write corrupts at most the final line, and recovery is truncation), the format is human-readable and greppable, it streams and tails naturally, it diffs and syncs cleanly from cloud workers, it needs no library to parse, and it is the lingua franca of every ecosystem Bolt adopts — session import (Phase 2) is largely a JSONL-to-JSONL translation.
-- **SQLite is a derived index, never authoritative.** Built from the logs, it serves everything that is miserable over flat files: cross-session queries for the session picker and viewer, full-text search over transcripts (FTS5), per-turn cost and token aggregation for insights, and fast tree navigation. Because it is derived, it carries no migration burden on history — a schema change means deleting the database and rebuilding it from the logs, never rewriting a log.
-- The write path is: append to JSONL first, then update the index. The index may lag; the log may not. If the two disagree, the log wins and the index is rebuilt.
-- Cloud workers durably append and upload only JSONL (section 11); each client maintains its own local index. SQLite files never cross machines.
+- **JSONL is the source of truth.** One append-only event log per session; the tree lives in the parent pointers. Appends are crash-safe (a torn write corrupts at most the final line, and recovery is truncation), the format is human-readable and greppable, it streams and tails naturally, it diffs and syncs cleanly from cloud workers, it needs no library to parse, and it is the lingua franca of every ecosystem Bolt adopts — session import is largely a JSONL-to-JSONL translation.
+- **Per-session JSON sidecar caches are the default index.** The pi-insights pattern (section 8.6): deterministic stats extracted once per session and cached as small JSON files. This covers the session picker, insights aggregation, and most viewer queries with no database at all.
+- **SQLite is the escalation for search, never authoritative.** The one workload sidecar caches cannot serve is full-text search over transcript content across thousands of sessions; grep over gigabytes of logs is seconds, FTS5 is milliseconds with ranking. When viewer search demands it, the index is built from the logs already on disk. Because it is derived, it carries no migration burden on history — a schema change means deleting the database and rebuilding, never rewriting a log.
+- The write path is: append to JSONL first, then update whatever index exists. An index may lag; the log may not. If they disagree, the log wins and the index is rebuilt.
+- Cloud workers durably append and upload only JSONL (section 11); each client maintains its own local caches and index. Index files never cross machines.
 
 ## 15. Interface direction
 
@@ -848,7 +865,19 @@ Requirements:
 - Read-only observer mode for watching a session without steering rights
 - Notification payloads exclude secrets and full file contents
 
-### 15.4 Session viewer
+The apps are native per platform — SwiftUI on iOS, Jetpack Compose on Android — not Flutter or React Native. Because the client is a projection with almost no business logic, a cross-platform framework saves little while blocking the platform features this app lives on: iOS Live Activities showing a running session's status on the lock screen, Android foreground services with approve/deny actions in the notification shade, widgets, share sheets, and native streaming-text performance for live transcripts. The protocol client, event sync, reconnection, and auth live in the shared core generated from the protocol schema (section 14.5), so the per-platform code is UI only.
+
+### 15.4 Headless and automation
+
+The same daemon serves non-interactive callers:
+
+- `bolt run -p "<prompt>"` executes a session headlessly and can emit structured JSON output for scripting.
+- CI integration: run Bolt as a pipeline step or a GitHub Action, with the event log uploaded as the run artifact.
+- Event subscriptions: a session can be woken by external events — a PR comment, a CI failure, a webhook — and act on them under its normal permission and sandbox policy.
+- Schedules: recurring triggers that start a fresh session or wake a persistent one.
+- Automation runs under the same daemon, log, budgets, and sandbox rules as interactive sessions; there is no separate headless code path.
+
+### 15.5 Session viewer
 
 A DSH-style session viewer is the observability surface over the event log and its index:
 
@@ -857,7 +886,7 @@ A DSH-style session viewer is the observability surface over the event log and i
 - Tool call inspection: inputs, outputs, duration, sandbox profile applied
 - Permission decisions and classifier reasons (section 9.3), as logged
 - Compaction events with before and after context sizes
-- Cross-session search and filtering, backed by the SQLite index (section 14.5)
+- Cross-session search and filtering, backed by the caches and search index (section 14.6)
 - Live tail of running sessions, local and cloud, in the same view
 - Export of any subtree as a plain JSONL slice
 
@@ -890,9 +919,13 @@ Reports:
 
 Publish tested compatibility status for real plugins. Plugin authors should be able to run the same conformance suite in their CI.
 
+### 16.3 Deterministic replay
+
+Because sessions are event-sourced, a recorded session is a test fixture for free. Replaying logged sessions against a new build — with model responses stubbed from the log — catches regressions in tool execution, compaction, permission decisions, and rendering without spending a token. The same mechanism, with live models substituted for the recorded ones, is the personal model bench (section 18): the user's own workflows become the benchmark suite.
+
 ## 17. Explicit non-goals
 
-Initial versions should not add:
+Bolt should not add:
 
 - Another skill format
 - Another MCP replacement
@@ -961,7 +994,7 @@ Initial versions should not add:
 2. Whether the default permission profile is `direct` or `auto`. Current lean: `auto`, since section 9.3 already positions it as the recommended midpoint; this must be settled before Phase 1 ships because the agent loop needs a permission posture from day one.
 3. Exact compatibility surface promised for the first Pi, OpenCode, and DSH release.
 4. Whether adopted extensions are always isolated or may be promoted to trusted in-process execution.
-5. Protocol versioning for the client wire format. The at-rest format is decided: JSONL event log as source of truth with a derived SQLite index (section 14.5).
+5. Protocol versioning for the client wire format. The at-rest format is decided: JSONL event log as source of truth with derived caches and a search index (section 14.6).
 6. First cloud provider to support before generalizing all three.
 7. Global and project learning budgets.
 8. Whether cloud transfer moves a session or creates a fork.
