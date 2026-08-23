@@ -79,7 +79,7 @@ Permission hooks alone are not a security boundary. Foreign extensions, MCP serv
 Most of what makes a great agent is the underlying model; the harness is what lets the model act. Bolt's value must survive a model swap:
 
 - Pi's provider API is the model abstraction; no second abstraction is layered on top (section 18).
-- Every model-calling role is independently selectable: the main agent loop, adoption conversion workers, the permission classifier, compaction summarization, facet extraction, and insight generation.
+- Every model-calling role is independently selectable: the main agent loop, side conversations (/btw), adoption conversion workers, the permission classifier, compaction summarization, vision description, OCR, speech recognition, speech synthesis, facet extraction, and insight generation.
 - Reasoning effort is first-class alongside model choice: every role and every subagent child carries an effort level (low through max), switchable mid-session and logged as a config change.
 - The kernel makes no vendor-specific prompt assumptions. Provider quirks live in provider adapters.
 - A model lacking a capability a role requires (tool calling, structured output) fails loudly at selection time instead of degrading silently.
@@ -214,6 +214,18 @@ Codex-style persistent objectives: `/goal <objective>` gives a session a stable 
 - Budgets (section 14.3) are the safety rail: a goal always runs under token, cost, and wall-clock ceilings, and pausing at a ceiling is a loud, resumable state — not a failure.
 - Getting stuck is reported loudly, with what was tried and what is blocking. A goal never spins silently.
 - Mission control and the mobile app show goal progress; blocked and completed goals notify.
+
+### 3.8 Vision, voice, and media
+
+Image input is on by default in every client — paste, drag, or reference a file, Pi-style. What happens next depends on the active model, loudly:
+
+- A vision-capable main model receives the image directly.
+- A main model without vision gets a clear disclaimer — never a silent drop. If a vision model is configured for the vision-description role, it describes the image and the description enters the conversation as an explicit, attributed event; the user always knows the main model saw a description, not the pixels.
+- OCR-only tasks (reading a screenshot of text, a receipt, an error dialog) route to a dedicated OCR role, typically a cheap fast model, instead of burning main-model tokens.
+
+Voice is supported in both directions — speech-to-text input and text-to-speech output — as per-client toggles, with the mobile app as the natural home. Recognition and synthesis are model roles like any other (section 2.7): independently selectable, local models welcome, capability-checked.
+
+All of this rides existing rails: media travels over the blob channel with references in the event log (section 14.5), and every cross-model handoff — vision description, OCR result, transcription — is a visible event, never invisible context.
 
 ## 4. Adoption compiler
 
