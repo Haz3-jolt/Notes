@@ -78,7 +78,7 @@ Permission hooks alone are not a security boundary. Foreign extensions, MCP serv
 
 Most of what makes a great agent is the underlying model; the harness is what lets the model act. Bolt's value must survive a model swap:
 
-- Pi's provider API is the model abstraction; no second abstraction is layered on top (section 17).
+- Pi's provider API is the model abstraction; no second abstraction is layered on top (section 18).
 - Every model-calling role is independently selectable: the main agent loop, adoption conversion workers, the permission classifier, compaction summarization, facet extraction, and insight generation.
 - The kernel makes no vendor-specific prompt assumptions. Provider quirks live in provider adapters.
 - A model lacking a capability a role requires (tool calling, structured output) fails loudly at selection time instead of degrading silently.
@@ -534,6 +534,18 @@ Properties Bolt depends on:
 
 Relationship to learning (section 8.1): the insights report is a candidate generator, not an evidence source. A suggestion appearing in a report still requires user-originated evidence before promotion into the managed AGENTS.md block; the user accepting a report suggestion is that evidence.
 
+### 8.7 Learning ledger and regression tracking
+
+Every change the learning system makes, in any tier, is recorded in its own ledger under `~/.bolt/learn/`, separate from the artifacts it modifies:
+
+- Each entry records the change itself, its tier, provenance, supporting evidence, confidence, and when it took effect.
+- The ledger is append-only and is what powers `/memory diff`, `/memory why`, and rollback.
+- Outcome tracking: insights metrics (friction, tool errors, cost, satisfaction, outcome rates) are compared between sessions before and after each change took effect, so the system can see whether its own changes helped.
+- A change whose after-metrics regress is flagged in the insights report with the evidence. A tier 1 auto change that regresses is automatically reverted, and the reversion is itself a ledger entry; changes in manual tiers are proposed for removal, never silently removed.
+- Attribution stays honest about confounders: metrics move for many reasons, so regression flags carry confidence, and changes that took effect together are evaluated together rather than blamed individually.
+
+The learning loop thereby gets the same treatment Bolt gives everything else: its actions are logged, reversible, and judged by evidence.
+
 Licensing: pi-insights is AGPL-3.0-only. Bundling it requires either relicensing by its copyright holders or keeping Bolt's insights module under a compatible license; this folds into open decision 9.
 
 ## 9. Permission model
@@ -778,7 +790,7 @@ Mirroring the Claude app's mode structure (chat, cowork, code — with code spli
 - `cloud`: the session runs on a cloud worker in an OCI sandbox (sections 11 and 12); any client can spawn one.
 - `attach`: remote control of an existing session from phone or web — a projection with steering rights, never a second loop (section 15.3).
 
-Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. A chat-style surface is cheap to expose — it is a session with zero tools — and may ship whenever convenient. A general cowork-style assistant surface is out of scope initially (section 17).
+Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. A chat-style surface is cheap to expose — it is a session with zero tools — and may ship whenever convenient. A general cowork-style assistant surface is out of scope initially (section 18).
 
 ### 14.2 Checkpoint and rewind
 
@@ -806,7 +818,7 @@ The SDK is deliberately thin because the daemon owns all behavior; a client is t
 - **Capability negotiation**: client and daemon exchange protocol version and feature sets on connect, and mismatches degrade loudly (open decision 5 covers the versioning scheme).
 - **Presence**: who else is attached to the session, so simultaneous terminal, web, and mobile clients can indicate each other.
 
-All client SDKs are generated from one protocol schema — the TypeScript, Swift, Kotlin, and Rust clients are codegen over the same definitions, not four hand-written libraries. Transports are pluggable beneath the same surface: Unix socket locally, WebSocket through the relay remotely. MCP remains the protocol for external tool servers; Bolt is an MCP client, never a replacement (section 17).
+All client SDKs are generated from one protocol schema — the TypeScript, Swift, Kotlin, and Rust clients are codegen over the same definitions, not four hand-written libraries. Transports are pluggable beneath the same surface: Unix socket locally, WebSocket through the relay remotely. MCP remains the protocol for external tool servers; Bolt is an MCP client, never a replacement (section 18).
 
 ### 14.6 Session storage
 
@@ -921,9 +933,38 @@ Publish tested compatibility status for real plugins. Plugin authors should be a
 
 ### 16.3 Deterministic replay
 
-Because sessions are event-sourced, a recorded session is a test fixture for free. Replaying logged sessions against a new build — with model responses stubbed from the log — catches regressions in tool execution, compaction, permission decisions, and rendering without spending a token. The same mechanism, with live models substituted for the recorded ones, is the personal model bench (section 18): the user's own workflows become the benchmark suite.
+Because sessions are event-sourced, a recorded session is a test fixture for free. Replaying logged sessions against a new build — with model responses stubbed from the log — catches regressions in tool execution, compaction, permission decisions, and rendering without spending a token. The same mechanism, with live models substituted for the recorded ones, is the personal model bench (section 19): the user's own workflows become the benchmark suite.
 
-## 17. Explicit non-goals
+## 17. Feature directions
+
+Beyond the core, these are the features Bolt's own primitives make uniquely possible.
+
+### 17.1 From the session tree
+
+- **What-if branches**: re-run any node's branch with a different model, prompt, or approach; compare the branches side by side and keep the winner.
+- **Second opinion**: one command to have a different model review the current branch's diff. Model-agnosticism makes cross-model review nearly free, and it catches the blind spots a model has about its own work.
+- **Shareable replays**: export any subtree as a scrubbable replay link — for bug reports, teaching, and showing what the agent did.
+
+### 17.2 From insights and learning
+
+- **Cost autopilot**: close the loop on spend analysis — route mechanical tasks to cheaper models, escalate on failure, and log every routing decision with its reason.
+- **Guardrails from your own mistakes**: a repeated failure pattern detected by insights becomes a drafted tier 2 hook that blocks or warns. The agent stops making the user's recurring mistakes, specifically.
+- **Cross-session recall**: search past session facets to reapply an old fix instead of re-deriving it. Memory as a product feature.
+- **Daily digest**: an end-of-day summary of what every session did, what it cost, and what is waiting on the user.
+
+### 17.3 From the daemon and placements
+
+- **Mission control**: one view of every running session across repos and placements — status, cost, current blocker — with the mobile app as the pocket version.
+- **Live app preview**: a cloud session tunnels its dev server to the phone, so the user watches the running app change while steering the agent from the same screen.
+- **Review inbox**: agents deliver finished diffs into an inbox that is reviewed and approved in batches, from any client.
+
+### 17.4 From adoption and sandboxing
+
+- **Team profile in the repo**: a checked-in profile lockfile gives a new teammate the team's exact skills, hooks, adopted packages, and sandbox policy in one run.
+- **Privacy switch**: per-session zero-egress mode with a local model, enforced by sandbox network policy rather than promises.
+- **Blind secrets**: the model reads placeholders; real values are injected only at execution time inside the sandbox. The agent uses credentials it never sees.
+
+## 18. Explicit non-goals
 
 Bolt should not add:
 
@@ -937,7 +978,7 @@ Bolt should not add:
 - Silent emulation of unsupported foreign APIs
 - A general cowork-style assistant surface before the Code surface is excellent
 
-## 18. Delivery phases
+## 19. Delivery phases
 
 ### Phase 1: foundation and adoption proof
 
@@ -988,7 +1029,7 @@ Bolt should not add:
 - Public compatibility catalog
 - Personal model bench: replay real workflows from insights data to compare models on the user's own tasks
 
-## 19. Open decisions
+## 20. Open decisions
 
 1. Product name: Bolt (screw-bolt-as-lightning-bolt logo). Decided as the working name; the package namespace and npm scope remain open.
 2. Whether the default permission profile is `direct` or `auto`. Current lean: `auto`, since section 9.3 already positions it as the recommended midpoint; this must be settled before Phase 1 ships because the agent loop needs a permission posture from day one.
@@ -1001,7 +1042,7 @@ Bolt should not add:
 9. Licensing and attribution policy for reused Pi code, and license compatibility or relicensing for the AGPL-3.0 pi-insights implementation (section 8.6).
 10. Whether the mobile app connects through a hosted relay service or direct daemon pairing first.
 
-## 20. Success criteria
+## 21. Success criteria
 
 The initial product thesis is proven when a user can:
 
