@@ -492,7 +492,7 @@ tier 2: manual
 tier 3: manual
 ```
 
-`/learn` shows and sets the tier controls. Approval semantics differ by what the artifact is, not by tier alone. For non-executable artifacts (instruction rules, skills, prompt templates), `auto` means the change activates directly. For executable artifacts (hooks, extensions), `auto` governs drafting only — generation, quarantine, capability manifest, typecheck, and tests run automatically, but activation always requires one explicit approval (section 8.4). There is no setting that auto-enables executable code.
+`/learn` shows the tier controls and the current learned rules. Approval semantics differ by what the artifact is, not by tier alone. For non-executable artifacts (instruction rules, skills, prompt templates), `auto` means the change activates directly. For executable artifacts (hooks, extensions), `auto` governs drafting only — generation, quarantine, capability manifest, typecheck, and tests run automatically, but activation always requires one explicit approval (section 8.4). There is no setting that auto-enables executable code.
 
 ### 8.1 Evidence sources
 
@@ -515,6 +515,8 @@ Do not learn global instructions directly from:
 
 Session summaries may identify candidates, but candidates require supporting user-originated evidence before promotion.
 
+To be explicit about what this is not: Bolt has no ambient memory system. Nothing retrieves past-session content and injects it into the prompt uninvited — no vector store of conversation summaries, no invisible context stuffing. What persists across sessions is a small set of plain-text instruction rules in a visible AGENTS.md block, each one evidence-gated, ledgered (section 8.7), and regression-tracked. Recall of past work exists only as a pull: the agent or the user searches session history when they choose to (section 17.2), and anything brought forward arrives as an explicit, visible event.
+
 ### 8.2 Tier 1: managed instructions
 
 May add, consolidate, or remove rules only inside the managed global AGENTS.md block.
@@ -533,11 +535,11 @@ Requirements:
 Commands:
 
 ```text
-/memory
-/memory diff
-/memory why <rule>
-/memory forget <rule>
-/memory rollback
+/learn
+/learn diff
+/learn why <rule>
+/learn forget <rule>
+/learn rollback
 ```
 
 ### 8.3 Manual mode
@@ -622,7 +624,7 @@ Relationship to learning (section 8.1): the insights report is a candidate gener
 Every change the learning system makes, in any tier, is recorded in its own ledger under `~/.bolt/learn/`, separate from the artifacts it modifies:
 
 - Each entry records the change itself, its tier, provenance, supporting evidence, confidence, and when it took effect.
-- The ledger is append-only and is what powers `/memory diff`, `/memory why`, and rollback.
+- The ledger is append-only and is what powers `/learn diff`, `/learn why`, and rollback.
 - Outcome tracking: insights metrics (friction, tool errors, cost, satisfaction, outcome rates) are compared between sessions before and after each change took effect, so the system can see whether its own changes helped.
 - A change whose after-metrics regress is flagged in the insights report with the evidence. A tier 1 auto change that regresses is automatically reverted, and the reversion is itself a ledger entry; changes in manual tiers are proposed for removal, never silently removed.
 - Attribution stays honest about confounders: metrics move for many reasons, so regression flags carry confidence, and changes that took effect together are evaluated together rather than blamed individually.
@@ -1038,7 +1040,7 @@ Reports:
 
 Publish tested compatibility status for real plugins. Plugin authors should be able to run the same conformance suite in their CI.
 
-Seed the catalog with what people demonstrably install across ecosystems: documentation retrieval, persistent memory, planning workflows, side-conversation channels, browser control, git workflows, config sync, and usage analytics. The proven winners get adopted, not rebuilt.
+Seed the catalog with what people demonstrably install across ecosystems: documentation retrieval, memory extensions (adoptable, though never part of core — section 8.1), planning workflows, side-conversation channels, browser control, git workflows, config sync, and usage analytics. The proven winners get adopted, not rebuilt.
 
 ### 16.3 Deterministic replay
 
@@ -1058,7 +1060,7 @@ Beyond the core, these are the features Bolt's own primitives make uniquely poss
 
 - **Cost autopilot**: close the loop on spend analysis — route mechanical tasks to cheaper models, escalate on failure, and log every routing decision with its reason.
 - **Guardrails from your own mistakes**: a repeated failure pattern detected by insights becomes a drafted tier 2 hook that blocks or warns. The agent stops making the user's recurring mistakes, specifically.
-- **Cross-session recall**: search past session facets to reapply an old fix instead of re-deriving it. Memory as a product feature.
+- **Cross-session recall**: on request, search past session facets to reapply an old fix instead of re-deriving it. Strictly pull-based — nothing from past sessions enters the prompt uninvited (section 8.1).
 - **Daily digest**: an end-of-day summary of what every session did, what it cost, and what is waiting on the user.
 
 ### 17.3 From the daemon and placements
@@ -1087,6 +1089,7 @@ Bolt should not add:
 - Automatic activation of generated executable code
 - Silent emulation of unsupported foreign APIs
 - A general cowork-style assistant surface before the Code surface is excellent
+- An ambient memory system that injects past-session content into the prompt uninvited
 
 ## 19. Delivery phases
 
