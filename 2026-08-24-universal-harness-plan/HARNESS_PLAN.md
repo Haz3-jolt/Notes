@@ -227,7 +227,7 @@ Codex-style persistent objectives: `/goal <objective>` gives a session a stable 
 
 - A goal states its completion criteria up front, and completion must be demonstrated (tests pass, build green), never asserted.
 - Goals are persisted state: they survive pauses, disconnects, restarts, and placement moves, and resume where they left off.
-- A goal may fork attempts as branches (section 14.4) and spawn subagent children (section 6.4) toward the same target.
+- A goal may fork attempts as branches (section 14.4) and spawn subagent children toward the same target under its delegated spawn authority (section 6.2), bounded by the goal's budget.
 - Budgets (section 14.3) are the safety rail: a goal always runs under token, cost, and wall-clock ceilings, and pausing at a ceiling is a loud, resumable state — not a failure.
 - Getting stuck is reported loudly, with what was tried and what is blocking. A goal never spins silently.
 - Mission control and the mobile app show goal progress; blocked and completed goals notify.
@@ -421,6 +421,8 @@ The adoption compiler (section 4) exists for the proprietary and divergent forma
 
 ## 6. Subagents
 
+One unified model: a subagent is a session with a parent. Every form of delegation — a review child, a side conversation, a workflow stage, a goal attempt, an adoption worker — is the same mechanism: a child session spawned over the same RPC every client uses, visible in the tree and mission control, with its own model, effort, tools, and placement. What differs between forms is only who is allowed to spawn (section 6.2).
+
 ### 6.1 Default policy
 
 ```text
@@ -429,9 +431,20 @@ Automatic task delegation: disabled
 Internal /adopt conversion workers: enabled for explicit adoption only
 ```
 
-The system prompt contains no subagent guidance when model-visible delegation is disabled.
+The system prompt contains no subagent guidance when model-visible delegation is disabled. The model never holds a spawn tool by default: delegation capability comes only through a spawn authority (section 6.2), never as an ambient tool.
 
-### 6.2 Supported execution forms
+### 6.2 Spawn authorities
+
+Exactly four authorities may create a child session:
+
+- **The user**: `/subagents` (section 6.4) and `/btw` (section 6.5).
+- **A script**: workflows (section 6.6) — code decides the fan-out, not the model.
+- **A goal**: inside `/goal` (section 3.7), the loop may spawn children on its own judgment. That authority is delegated explicitly by the user when the goal is set, and it is bounded by the goal's budget — borrowed authority, never a default capability.
+- **The system**: bounded internal workers for explicit operations like `/adopt` (section 4.2).
+
+Outside these four, nothing spawns.
+
+### 6.3 The child contract
 
 The runtime may support:
 
@@ -460,9 +473,7 @@ dispose
 
 Each backend advertises capabilities such as continuation, history fork, structured output, tool restriction, resume, remote attachment, and hard termination. Unsupported capability requests fail explicitly.
 
-### 6.3 Imported subagent plugins
-
-An adopted plugin may register subagent capabilities, but activation must show that it enables model-visible delegation. Installing a plugin must not silently change the default single-agent posture.
+The external harness child deserves emphasis: Bolt can drive another harness — a Claude Code or Codex session — as a subagent, its output entering the tree like any native child. The subagent contract doubles as the interop story.
 
 ### 6.4 Explicit subagents (/subagents)
 
@@ -482,6 +493,19 @@ Delegation is something the user invokes, not something the model decides. `/sub
 Deterministic orchestration in the style of Claude Code workflows and Codex automations: a workflow is a plain script over the SDK that spawns subagent children — fan-out, pipelines, verify passes — with ordinary code deciding control flow instead of the model. Workflows are user-invoked like everything else in this section, their children appear in the tree and mission control, and each child carries its own model and effort level.
 
 This does not reopen the non-goal (section 18): there is no bespoke workflow language. A workflow is code over the same RPC surface every client uses — nothing to learn beyond the SDK. Existing Claude Code workflow scripts and Codex automations are adoption targets for the compiler like any other ecosystem resource.
+
+### 6.7 Agent definitions
+
+Named, swappable agent definitions live in an agents folder — `.bolt/agents/` in the project, `~/.bolt/agents/` globally:
+
+- A definition names an agent (`reviewer`, `test-writer`, `researcher`) and sets its model, effort, tool set, prompt, and default placement.
+- Definitions are data, not code: swap the model in a definition file and the next spawn uses it — no reinstall, no restart.
+- `/subagents`, workflows, and goals spawn by definition name; ad-hoc spawns without a definition remain possible.
+- Claude Code agent definitions (`.claude/agents/`) are an adoption target like any other resource (section 4).
+
+### 6.8 Imported subagent plugins
+
+An adopted plugin may register subagent capabilities, but activation must show that it enables model-visible delegation. Installing a plugin must not silently change the default single-agent posture.
 
 ## 7. Prompt design
 
@@ -979,7 +1003,7 @@ A session can carry token, cost, and wall-clock budgets. Crossing a budget pause
 
 ### 14.4 Tree sessions
 
-A session is a tree of turns, not a list. Every event carries an id and a parent id; branching, rewind (section 14.2), and forked-history children (section 6.2) are all the same operation — start a new branch from an existing node. Nothing is ever destroyed by branching: the old branch remains addressable, compaction summarizes per branch (section 13), and clients render the tree rather than pretending the session is linear.
+A session is a tree of turns, not a list. Every event carries an id and a parent id; branching, rewind (section 14.2), and forked-history children (section 6.3) are all the same operation — start a new branch from an existing node. Nothing is ever destroyed by branching: the old branch remains addressable, compaction summarizes per branch (section 13), and clients render the tree rather than pretending the session is linear.
 
 ### 14.5 Protocol and SDK
 
