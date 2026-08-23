@@ -731,6 +731,8 @@ Whole-runtime or extension-process isolation is required for untrusted adopted e
 
 Browser and computer use are tools that live inside the sandbox, not beside it: the browser runs under the session's sandbox profile, its egress under the same network allowlists, its downloads inside the workspace mounts. The agent can drive the app it is building, take screenshots, and do web research — with no side door around network policy.
 
+The browser is the completeness escape hatch, not the primary path. The tool hierarchy is: shell and files first, MCP and APIs second, browser only where no API exists — driving a GUI by screenshot is the most expensive and least reliable action per click, so the agent must not reach for it when a connector does the job. With that hierarchy, the browser plus the chat surface covers most of what a cowork-style assistant product offers — general web tasks, forms, research, SaaS work — which is precisely what lets the cowork surface stay a non-goal (section 18). Authenticated browsing (cookies, logged-in sessions) is always an explicit per-site opt-in, never a default.
+
 ### 10.6 Web access
 
 Web search and content fetching are core capabilities, not an afterthought — an agent that cannot read the web re-derives what a search would have told it. The base is an adoption of `pi-web-access` (MIT), which already has the right product shape:
