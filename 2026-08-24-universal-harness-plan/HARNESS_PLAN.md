@@ -80,9 +80,14 @@ Most of what makes a great agent is the underlying model; the harness is what le
 
 - Pi's provider API is the model abstraction; no second abstraction is layered on top (section 18).
 - Every model-calling role is independently selectable: the main agent loop, adoption conversion workers, the permission classifier, compaction summarization, facet extraction, and insight generation.
+- Reasoning effort is first-class alongside model choice: every role and every subagent child carries an effort level (low through max), switchable mid-session and logged as a config change.
 - The kernel makes no vendor-specific prompt assumptions. Provider quirks live in provider adapters.
 - A model lacking a capability a role requires (tool calling, structured output) fails loudly at selection time instead of degrading silently.
 - Local models are first-class providers, subject to the same capability checks.
+
+### 2.8 Zero-config, discovered in use
+
+Bolt has many capabilities and therefore many settings — and that is exactly why none of them may be required. Every option ships with a default good enough that a user who never opens a config file gets an excellent agent. Features are discovered while using the product (section 3.6), not chosen up front: there is no setup wizard, no mandatory profile selection, no decision gauntlet on first launch. The adoption scan is the entire onboarding. Configuration exists for the users who go looking for it.
 
 ## 3. User experience
 
@@ -177,6 +182,27 @@ Bolt reads a `.bolt/` directory in the project alongside the global `~/.bolt/`:
 - Project rules stay project-scoped: nothing in `.bolt/` is promoted into global learning (section 8.2)
 
 Settings resolve project over global; capabilities and sandbox restrictions can only narrow from global to project, never widen.
+
+### 3.6 Progressive disclosure
+
+Features are taught where the user's eyes already are: the working indicator. While the agent runs, the status line carries an occasional one-line tip, video-game loading-screen style:
+
+```text
+⚡ Bolting… (12s · 3.1k tokens)
+Tip: /learn tier 3 auto drafts extensions from your patterns — you approve before anything runs.
+```
+
+```text
+⚡ Bolting… (4s · 800 tokens)
+Tip: /minimal runs with just two tools when you want raw speed.
+```
+
+Rules that keep tips helpful instead of annoying:
+
+- Contextual: drawn from what the user is doing and from insights (section 8.6), which already knows which features they don't use — the same engine that powers report suggestions feeds the tips.
+- A tip for a feature the user already uses is never shown; a dismissed tip never returns.
+- Rate-limited, one line, never blocking, never a modal.
+- Tips guide toward features, never toward required setup — per section 2.8, ignoring every tip must still leave an excellent agent.
 
 ## 4. Adoption compiler
 
@@ -374,7 +400,7 @@ An adopted plugin may register subagent capabilities, but activation must show t
 
 ### 6.4 Explicit subagents (/subagents)
 
-Delegation is something the user invokes, not something the model decides. `/subagents` spawns child sessions over the daemon RPC — each with its own chosen model, tools, and placement — for jobs like a cross-model review or a cheap-model test sweep. Children appear in mission control and in the session tree like any other session. There is no subagent tool in the model's hands by default and no delegation prose in the prompt, ever (section 2.5).
+Delegation is something the user invokes, not something the model decides. `/subagents` spawns child sessions over the daemon RPC — each with its own chosen model, effort level, tools, and placement — for jobs like a cross-model review or a cheap-model test sweep. Children appear in mission control and in the session tree like any other session. There is no subagent tool in the model's hands by default and no delegation prose in the prompt, ever (section 2.5).
 
 ### 6.5 Side conversations (/btw)
 
@@ -384,6 +410,12 @@ Delegation is something the user invokes, not something the model decides. `/sub
 - A side thread can use tools under the session's normal permission and sandbox policy.
 - Side-channel branches are excluded from main-branch compaction (section 13).
 - A thread's conclusions can be injected back into the main conversation as an explicit event, never silently.
+
+### 6.6 Workflows
+
+Deterministic orchestration in the style of Claude Code workflows and Codex automations: a workflow is a plain script over the SDK that spawns subagent children — fan-out, pipelines, verify passes — with ordinary code deciding control flow instead of the model. Workflows are user-invoked like everything else in this section, their children appear in the tree and mission control, and each child carries its own model and effort level.
+
+This does not reopen the non-goal (section 18): there is no bespoke workflow language. A workflow is code over the same RPC surface every client uses — nothing to learn beyond the SDK. Existing Claude Code workflow scripts and Codex automations are adoption targets for the compiler like any other ecosystem resource.
 
 ## 7. Prompt design
 
@@ -460,7 +492,7 @@ tier 2: manual
 tier 3: manual
 ```
 
-Approval semantics differ by what the artifact is, not by tier alone. For non-executable artifacts (instruction rules, skills, prompt templates), `auto` means the change activates directly. For executable artifacts (hooks, extensions), `auto` governs drafting only — generation, quarantine, capability manifest, typecheck, and tests run automatically, but activation always requires one explicit approval (section 8.4). There is no setting that auto-enables executable code.
+`/learn` shows and sets the tier controls. Approval semantics differ by what the artifact is, not by tier alone. For non-executable artifacts (instruction rules, skills, prompt templates), `auto` means the change activates directly. For executable artifacts (hooks, extensions), `auto` governs drafting only — generation, quarantine, capability manifest, typecheck, and tests run automatically, but activation always requires one explicit approval (section 8.4). There is no setting that auto-enables executable code.
 
 ### 8.1 Evidence sources
 
@@ -844,7 +876,7 @@ Capabilities:
 - Permission requests from any authorized client
 - Tree-structured sessions with first-class branches
 - Checkpoint and rewind
-- Model switching
+- Model and effort switching
 - Context and cost visibility
 - Sandbox status
 - Background operation status
