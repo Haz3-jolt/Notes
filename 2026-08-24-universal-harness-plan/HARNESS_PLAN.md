@@ -671,6 +671,20 @@ Whole-runtime or extension-process isolation is required for untrusted adopted e
 
 Browser and computer use are tools that live inside the sandbox, not beside it: the browser runs under the session's sandbox profile, its egress under the same network allowlists, its downloads inside the workspace mounts. The agent can drive the app it is building, take screenshots, and do web research — with no side door around network policy.
 
+### 10.6 Web access
+
+Web search and content fetching are core capabilities, not an afterthought — an agent that cannot read the web re-derives what a search would have told it. The base is an adoption of `pi-web-access` (MIT), which already has the right product shape:
+
+- Two tools — `web_search` and `fetch_content` — with everything else as routing beneath them.
+- Zero-config default: keyless search works out of the box; API keys, reused subscription auth, and self-hosted endpoints unlock more providers.
+- Provider fallback chains with private-first routing: a self-hosted or local search endpoint is tried before any hosted provider.
+- Content extraction modes: readable markdown, exact raw bodies, or a grounded answer produced by a cheap summary model — the main model never burns context on pages it didn't ask to read in full.
+- GitHub URLs are cloned locally, not scraped: the agent gets real files and a path to explore, not rendered HTML.
+- Video understanding: transcripts, visual descriptions, and frame extraction from video links and local screen recordings.
+- SSRF protection and content sanitization built in; hosted third-party page fetchers are explicit opt-in.
+
+Under Bolt, provider calls are ordinary egress: they obey the session's network policy and appear in the event log like any other tool traffic. Provider keys live in the secrets layer (section 12.4), never in prompts or logs.
+
 ## 11. OCI runtime
 
 OCI is the common execution substrate for local containers and cloud workers.
@@ -832,9 +846,9 @@ Mirroring the Claude app's mode structure (chat, cowork, code — with code spli
 - `cloud`: the session runs on a cloud worker in an OCI sandbox (sections 11 and 12); any client can spawn one.
 - `attach`: remote control of an existing session from phone or web — a projection with steering rights, never a second loop (section 15.3).
 
-Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. A chat surface is cheap to expose because it is a session with zero tools: `bolt web` serves the web client on localhost, and — DSH-style — a chat profile turns it into a local chat app in the browser. A general cowork-style assistant surface is out of scope initially (section 18).
+Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. `bolt web` serves the web client on localhost with two modes, DSH-style: **code**, the full session UI, and **chat**, a zero-tool chat profile for using the harness as a local chat app — same daemon, same event log, one toggle apart. A general cowork-style assistant surface is out of scope initially (section 18).
 
-Parallel sessions on the same repository isolate their working state in git worktrees, so mission control (section 17.3) can run several agents against one repo without them fighting over files.
+Parallel sessions on the same repository isolate their working state in git worktrees, so mission control (section 17.3) can run several agents against one repo without them fighting over files. Worktrees are created on demand when a session opens an already-busy repo and cleaned up automatically when a session ends without changes.
 
 ### 14.2 Checkpoint and rewind
 
