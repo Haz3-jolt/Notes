@@ -15,7 +15,7 @@ The product promise is:
 The harness is not another generic Claude Code clone. Its differentiators are:
 
 1. One-command adoption of Pi extensions, OpenCode plugins, and DeepSeek Harness plugins.
-2. A shared local and remote session runtime with terminal and web clients.
+2. A shared local and remote session runtime with terminal, web, and mobile clients.
 3. Explicit, non-bypassable sandbox profiles using operating-system or OCI isolation.
 4. Minimal prompts and no default model-driven subagent delegation.
 5. Pi-compatible compaction behavior.
@@ -58,6 +58,8 @@ Every value that can affect a model request must be reconstructable from the ses
 - Compaction summaries
 - Provider request configuration
 - Extension-provided context
+
+Logged does not mean leaked: secrets are redacted at log-write time. Provider request configuration is recorded with credential fields masked, and the redaction field list is itself versioned so a session log can never contain a live token. This is what reconciles model-visible logging with the credential rules in section 12.4.
 
 ### 2.5 No default subagents
 
@@ -181,6 +183,16 @@ Parallel workers may specialize in:
 
 Parallelism is limited to independent conversion surfaces. A final verifier reads the combined result and cannot modify it.
 
+Conversion workers are themselves capability-bounded, because they read hostile input:
+
+- Read-only access to the fetched, locked source
+- Write access only to a staging directory
+- No network access during conversion
+- No host credentials
+- Package content is untrusted data. Instructions found inside a package (README, comments, manifests) must not steer the converter, expand worker capabilities, or alter the conversion plan.
+
+"Inspect without execution" protects against running foreign code; these bounds protect against foreign code steering the model that converts it.
+
 ### 4.3 Compatibility levels
 
 Every adopted feature receives an explicit status:
@@ -231,6 +243,26 @@ The original package is never modified.
 ```
 
 An update compares the new upstream source with the previously adopted upstream source, ports the upstream delta, reruns all checks, and activates atomically. Local conversion fixes must not be overwritten blindly.
+
+Concretely, an update is a three-way merge across the previously adopted upstream source, the new upstream source, and the locally converted output. Local fixes to generated code are stored as explicit overlay patches rather than in-place edits, so the converter can regenerate from the new upstream and reapply them deterministically. A patch that no longer applies is a loud conflict that drops the update into manual review. It is never silently dropped and never blindly overwritten.
+
+### 4.6 Partial adoption
+
+A package with a mix of supported and `unsupported` surfaces is the common case, not the edge case.
+
+- A package may activate partially, but only after its unsupported surfaces are listed and explicitly acknowledged by the user.
+- The adoption result names every unsupported surface; `adoption.json` records them and `/doctor` reports them.
+- No stubs or silent no-ops are generated for unsupported behavior. Calling an unsupported surface fails loudly.
+- If the package's primary entry surface is unsupported, adoption fails as a whole rather than producing a hollow package.
+
+### 4.7 Conversion cost and reproducibility
+
+Adoption is a model-driven compile, so its cost and repeatability are user-facing properties:
+
+- Adoption shows an estimated duration and model cost before conversion starts, and the result reports actual elapsed time and tokens spent.
+- Conversion output is cached by source content hash plus converter version. Re-adopting identical input reuses the cached result instead of regenerating.
+- Model output is not bit-reproducible, but `adoption.json` records the model, settings, and converter version needed to explain any difference between two conversions of the same source.
+- Verification, unlike conversion, must be deterministic: the same converted output always passes or fails the same checks.
 
 ## 5. Native extension runtime
 
@@ -323,7 +355,6 @@ The stable base contains only:
 - Active tools
 - Applicable AGENTS.md instructions
 - Essential operating constraints
-- Current user request
 
 Rules:
 
@@ -331,7 +362,7 @@ Rules:
 - No full skill body until selected.
 - No instructions for inactive features.
 - No complete plugin catalog in the prompt.
-- Dynamic information should not invalidate the stable prompt-cache prefix unnecessarily.
+- Dynamic information should not invalidate the stable prompt-cache prefix unnecessarily. The current user request and other per-turn content are appended after the stable prefix, never inside it.
 - If a capability is unavailable for a request, it contributes zero prompt tokens.
 
 ### 7.2 Global AGENTS.md
@@ -666,6 +697,7 @@ One authoritative daemon owns the session. Clients are projections over the same
 
 - Terminal UI
 - Web UI
+- Mobile app
 - Headless client
 - SDK
 - Remote control client
@@ -683,8 +715,9 @@ Capabilities:
 - Sandbox status
 - Background operation status
 - Cloud transfer
+- Push notifications for permission requests, blockers, and completion
 
-The web and terminal clients must not implement separate agent loops.
+The web, terminal, and mobile clients must not implement separate agent loops.
 
 ## 15. Interface direction
 
@@ -711,6 +744,27 @@ Use DSH's plugin-oriented presentation principles:
 - Extension-provided panels and conversation nodes
 - Live permission and sandbox state
 - Detachable and reconnectable sessions
+
+### 15.3 Mobile
+
+The mobile app is a remote-control client over the same daemon protocol, in the way Claude Code and Codex expose sessions on a phone. It runs no agent loop of its own and is a projection like every other client.
+
+Capabilities:
+
+- List, open, and start sessions on cloud workers or reachable daemons
+- Live conversation view with tool, diff, and terminal cards
+- Reply to and steer a running session
+- Answer permission requests from the phone
+- Push notifications for permission requests, blockers, task completion, and PR events
+- Review diffs and approve before a push
+- Detach and reconnect; a phone losing signal never kills the session
+
+Requirements:
+
+- Connections go through an authenticated relay or direct daemon pairing; the daemon, not the client, remains authoritative
+- Device pairing with revocable per-device credentials
+- Read-only observer mode for watching a session without steering rights
+- Notification payloads exclude secrets and full file contents
 
 ## 16. Compatibility and diagnostics
 
@@ -785,6 +839,8 @@ Initial versions should not add:
 - GCP adapter
 - Kubernetes and SSH adapters
 - Detach and reconnect
+- Mobile remote-control app
+- Push notification relay
 - Artifact synchronization
 - Resource reconciler
 - Cost and lease enforcement
@@ -800,7 +856,7 @@ Initial versions should not add:
 ## 19. Open decisions
 
 1. Product name and package namespace.
-2. Whether the default permission profile is `direct` or `auto`.
+2. Whether the default permission profile is `direct` or `auto`. Current lean: `auto`, since section 9.3 already positions it as the recommended midpoint; this must be settled before Phase 1 ships because the agent loop needs a permission posture from day one.
 3. Exact compatibility surface promised for the first Pi, OpenCode, and DSH release.
 4. Whether adopted extensions are always isolated or may be promoted to trusted in-process execution.
 5. Canonical session wire format and protocol versioning.
@@ -808,6 +864,7 @@ Initial versions should not add:
 7. Global and project learning budgets.
 8. Whether cloud transfer moves a session or creates a fork.
 9. Licensing and attribution policy for reused Pi code.
+10. Whether the mobile app connects through a hosted relay service or direct daemon pairing first.
 
 ## 20. Success criteria
 
@@ -823,3 +880,4 @@ The initial product thesis is proven when a user can:
 8. Run its tools inside a required sandbox.
 9. Detach and reconnect without losing work.
 10. Update or roll back the adopted plugin safely.
+11. Watch and steer a cloud session from the mobile app, including answering a permission request from the phone.
