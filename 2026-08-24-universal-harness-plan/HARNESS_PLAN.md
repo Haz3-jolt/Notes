@@ -6,23 +6,23 @@ Updated: 2026-08-24
 
 ## 1. Product thesis
 
-Build a universal coding-agent harness that adopts existing agent ecosystems instead of forcing users to migrate manually.
+> Bolt is the harness that adapts to you, instead of you adapting to it.
+
+Every other harness asks the user to adapt: migrate your setup, learn our config, buy our subscription, stay in our client, use our model. Bolt inverts the direction — it molds itself to the user's existing setups, habits, devices, and model choices.
 
 The product is named Bolt. The logo is a screw bolt drawn in a lightning-bolt silhouette: fast, and able to bolt any ecosystem's features onto one runtime.
 
-The product promise is:
+The thesis has five pillars, each a form of adaptation:
 
-> Keep your extensions, skills, hooks, configuration, and sessions. Adopt them into one runtime, then run locally, through a web interface, or in an OCI environment.
+1. **Adoption — adapts to your past.** One-command adoption of Pi extensions, OpenCode plugins, DSH plugins, and Claude Code resources (section 4); open-standard resources install directly (section 5.2). The promise: keep your extensions, skills, hooks, configuration, and sessions.
+2. **Zero config — adapts without being asked.** Every capability ships with defaults good enough that a user who never opens a config file gets an excellent agent (section 2.8).
+3. **Self-learning — adapts to your present.** Your corrections become its rules and your repeated mistakes become its guardrails — every learned change visible, evidence-gated, ledgered, and reversible (section 8). Learning you can audit, never ambient memory.
+4. **Infinite extensibility — adapts to what it can't yet do.** Everything is an extension except the kernel, up to the experimental loop where Bolt drafts its own extensions (sections 2.9, 8.5). Extensibility with guarantees: everything swappable except the guarantees themselves.
+5. **Everywhere, with any model — adapts to where you are and what you run.** One daemon with terminal, web, mobile, and IDE clients as projections (section 14); every model-calling role provider-swappable, and tool dialects render the core tools in each model's trained format (sections 2.7, 7.4).
 
-The harness is not another generic Claude Code clone. Its differentiators are:
+The pillars conflict unless the architecture reconciles them. Extensibility and zero config are natural enemies — self-learning reconciles them by configuring the system from evidence instead of questions. Self-learning without visibility is surveillance — the ledger makes it auditable. Many clients without one daemon is many buggy agents — the event log makes clients cheap projections. The conjunction, not any single pillar, is the product; copying it requires copying the kernel guarantees, which is the one part of Bolt nothing can swap out.
 
-1. One-command adoption of Pi extensions, OpenCode plugins, and DeepSeek Harness plugins.
-2. A shared local and remote session runtime with terminal, web, and mobile clients.
-3. Explicit, non-bypassable sandbox profiles using operating-system or OCI isolation.
-4. Minimal prompts and no default model-driven subagent delegation.
-5. Pi-compatible compaction behavior.
-6. An optional learning loop, grounded in an insights engine over real session history, that maintains concise user instructions and can draft skills, hooks, and experimental self-extensions.
-7. Model-agnostic by construction: the frontier model is the magic, the harness is the enabler, and every role that calls a model is provider-swappable.
+Beneath the pillars sit three design commitments: explicit, non-bypassable sandbox profiles using operating-system or OCI isolation (section 10); minimal prompts with no default model-driven delegation (sections 2.5, 7); and Pi-compatible compaction and session format (sections 13, 14.6).
 
 ## 2. Product principles
 
@@ -790,6 +790,14 @@ Every change the learning system makes, in any tier, is recorded in its own ledg
 
 The learning loop thereby gets the same treatment Bolt gives everything else: its actions are logged, reversible, and judged by evidence.
 
+### 8.8 Proactive suggestions at project start
+
+When Bolt opens a new or unfamiliar project, the learning system proposes skills, hooks, and extensions that fit it — drawn from project inspection (languages, frameworks, scripts, CI) and from insights evidence about how the user actually works (section 8.6). A repo with a deploy script suggests a deploy hook; a stack the user repeatedly fights suggests a triage skill.
+
+Approval follows the tier controls (section 8): in manual tiers, a suggestion is a proposal requiring approval before anything is created. In auto tiers, the artifact is created automatically and announced — non-executable artifacts activate directly; executable hooks and extensions land in quarantine ready to enable, and activation keeps the one explicit approval that no setting removes (sections 8.4, 18). Created artifacts are project-scoped in `.bolt/` (section 3.5) unless the user promotes them.
+
+Suggestions and announcements are client-surface only: printed to the screen, never injected into the session's model context. They cost zero prompt tokens and break no cache prefix (section 7.1); the model learns of a new artifact the way it learns of any capability — through the index, when relevant (section 7.5). Proposals are rate-limited and dismissible like tips (section 3.6); a dismissed suggestion never returns.
+
 ## 9. Permission model
 
 ### 9.1 Default philosophy
@@ -1310,7 +1318,7 @@ DSH makes everything a plugin, including the loop, the log, and the policy layer
 Bolt reuses Pi where Pi is right — the agent loop, compaction, the provider API, prompt minimalism, cache discipline, and its tree-session JSONL format, which Bolt keeps nearly as-is (section 14.6). What Pi does not have as one product: the adoption compiler, a single authoritative daemon with terminal, web, mobile, and IDE clients speaking one protocol (Pi's core is a TUI; web front-ends and daemons exist as separate community projects), placements with cloud transfer, sandboxing as enforced policy, and the learning loop. Pi is an ingredient, not the product.
 
 **Is this another Claude Code clone?**
-No. The differentiators are one-command adoption of existing ecosystems, model-agnosticism with per-role model and effort selection, tree sessions, no default subagents, and observability down to every logged decision (section 1).
+No. The thesis is that Bolt adapts to you instead of you adapting to it (section 1): it adopts your existing ecosystems, configures itself, learns from how you work, extends itself when it falls short, and meets you on any client with any model — plus tree sessions, no default subagents, and observability down to every logged decision.
 
 **Will my existing setup work?**
 That is the core promise. Resources on the AAIF open standards — MCP, AGENTS.md, Agent Skills, Agent Plugins — install directly (section 5.2). Pi, OpenCode, DSH, and Claude Code resources go through the adoption compiler (section 4), which converts without touching the original and tells you exactly what did and did not carry over.
