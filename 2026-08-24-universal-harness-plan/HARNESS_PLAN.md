@@ -79,6 +79,7 @@ Permission hooks alone are not a security boundary. Foreign extensions, MCP serv
 Most of what makes a great agent is the underlying model; the harness is what lets the model act. Bolt's value must survive a model swap:
 
 - Pi's provider API is the model abstraction; no second abstraction is layered on top (section 18).
+- Tool dialects (section 7.4): provider adapters render the canonical tool roster in each model's trained schema and edit format, so switching models never means playing away from home.
 - Every model-calling role is independently selectable: the main agent loop, side conversations (/btw), adoption conversion workers, the permission classifier, compaction summarization, vision description, OCR, speech recognition, speech synthesis, facet extraction, and insight generation.
 - Reasoning effort is first-class alongside model choice: every role and every subagent child carries an effort level (low through max), switchable mid-session and logged as a config change.
 - Per section 2.8, every role defaults without configuration: the main model where capability allows, the cheapest capable model for mechanical roles (OCR, facet extraction). Nobody has to configure a role to use a feature.
@@ -599,6 +600,10 @@ standard  shell, read, edit, write, web_search, fetch_content
 - There is no subagent tool, task list tool, or planning tool in the roster: delegation is user-invoked (section 6.4), and planning is a mode (section 3.4), not a tool the model juggles.
 - Extensions and MCP servers add tools, and every tool is toggleable per session.
 - A tool that is unavailable contributes zero prompt tokens (section 7.1) — profiles are subtractive from nothing, not additive onto a bloated base.
+
+The roster is semantically fixed, but its rendering is per-model: tool identity and tool dialect are separate layers. A provider adapter renders each canonical tool — shell, read, edit, write — in the dialect the active model was trained on: the tool names, schema shapes, and edit formats its vendor publishes as training-matched. The model sees its native dialect; the kernel, permission policy, sandbox, and event log see one canonical tool. This is what upgrades model-agnosticism (section 2.7) from a neutrality claim to a performance claim: every model plays on its home field, and the measured home-harness advantage — a few points, mostly formats — is recovered with data, not with a fork of the harness.
+
+Dialects are hot-swappable data files, not code: updating one needs no restart, and a model with no known dialect falls back to the generic rendering loudly (section 2.2), never silently. A dialect change applies at the next dialect boundary — a model switch, or an explicit `/reload` — because the provider-visible tool list freezes between boundaries (section 7.1); both are deliberate cache breaks, logged as config-change events. `/reload` is a command like any other (section 14.5): a thin RPC the user invokes directly and the model can reach through harness-control under normal permission policy, so "pick up the updated dialect" is something the agent can be asked to do mid-session.
 
 To keep the roster honest, be precise about what a tool is. Bolt has four invocation directions, and only the first is a tool:
 
@@ -1320,7 +1325,7 @@ Ambient memory injects stale content invisibly, breaks the prompt cache, and mak
 Session logs are JSONL files on your machine (section 14.6). Cloud workers append and upload logs to storage you control; indexes and caches are derived locally and never leave. Secrets are redacted at log-write time (section 2.4).
 
 **Which model should I use?**
-Any — that is the point. Every role takes any capable provider, local models included, and the personal model bench (section 16.3) answers the question empirically from your own sessions rather than from benchmarks.
+Any — that is the point. Every role takes any capable provider, local models included, and tool dialects (section 7.4) render the core tools in each model's trained format, so no model is handicapped by foreign tool schemas. The personal model bench (section 16.3) then answers the question empirically from your own sessions rather than from benchmarks.
 
 **Do I have to configure all of this?**
 No (section 2.8). Everything ships with working defaults, features introduce themselves as one-line tips while you work (section 3.6), and anything you don't use can be disabled — or will eventually offer to disable itself (section 8.4).
