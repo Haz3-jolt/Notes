@@ -18,11 +18,11 @@ The thesis has five pillars, each a form of adaptation:
 2. **Zero config — adapts without being asked.** Every capability ships with defaults good enough that a user who never opens a config file gets an excellent agent (section 2.8).
 3. **Self-learning — adapts to your present.** Your corrections become its rules and your repeated mistakes become its guardrails — every learned change visible, evidence-gated, ledgered, and reversible (section 8). Learning you can audit, never ambient memory.
 4. **Infinite extensibility — adapts to what it can't yet do.** Everything is an extension except the kernel, up to the experimental loop where Bolt drafts its own extensions (sections 2.9, 8.5). Extensibility with guarantees: everything swappable except the guarantees themselves.
-5. **Everywhere, with any model — adapts to where you are and what you run.** One daemon with terminal, web, mobile, and IDE clients as projections (section 14); every model-calling role provider-swappable, and tool dialects render the core tools in each model's trained format (sections 2.7, 7.4).
+5. **Everywhere, with any model — adapts to where you are and what you run.** One daemon with terminal, web, mobile, and IDE clients as projections (section 15); every model-calling role provider-swappable, and tool dialects render the core tools in each model's trained format (sections 2.7, 7.4). And with whatever you already pay for: multiple entitlements pool into one capacity pool instead of forcing a re-login when one runs out (section 13).
 
 The pillars conflict unless the architecture reconciles them. Extensibility and zero config are natural enemies — self-learning reconciles them by configuring the system from evidence instead of questions. Self-learning without visibility is surveillance — the ledger makes it auditable. Many clients without one daemon is many buggy agents — the event log makes clients cheap projections. The conjunction, not any single pillar, is the product; copying it requires copying the kernel guarantees, which is the one part of Bolt nothing can swap out.
 
-Beneath the pillars sit three design commitments: explicit, non-bypassable sandbox profiles using operating-system or OCI isolation (section 10); minimal prompts with no default model-driven delegation (sections 2.5, 7); and Pi-compatible compaction and session format (sections 13, 14.6).
+Beneath the pillars sit three design commitments: explicit, non-bypassable sandbox profiles using operating-system or OCI isolation (section 10); minimal prompts with no default model-driven delegation (sections 2.5, 7); and Pi-compatible compaction and session format (sections 14, 15.6).
 
 ## 2. Product principles
 
@@ -78,7 +78,7 @@ Permission hooks alone are not a security boundary. Foreign extensions, MCP serv
 
 Most of what makes a great agent is the underlying model; the harness is what lets the model act. Bolt's value must survive a model swap:
 
-- Pi's provider API is the model abstraction; no second abstraction is layered on top (section 18).
+- Pi's provider API is the model abstraction; no second abstraction is layered on top (section 19).
 - Tool dialects (section 7.4): provider adapters render the canonical tool roster in each model's trained schema and edit format, so switching models never means playing away from home.
 - Every model-calling role is independently selectable: the main agent loop, side conversations (/btw), adoption conversion workers, the permission classifier, compaction summarization, vision description, OCR, speech recognition, speech synthesis, facet extraction, and insight generation.
 - Reasoning effort is first-class alongside model choice: every role and every subagent child carries an effort level (low through max), switchable mid-session and logged as a config change.
@@ -86,6 +86,7 @@ Most of what makes a great agent is the underlying model; the harness is what le
 - The kernel makes no vendor-specific prompt assumptions. Provider quirks live in provider adapters.
 - A model lacking a capability a role requires (tool calling, structured output) fails loudly at selection time instead of degrading silently.
 - Local models are first-class providers, subject to the same capability checks.
+- Model access is plural: a role selects a pool of authorized entitlements, not a single credential, so capacity and identity are separable from model choice (section 13).
 
 ### 2.8 Zero-config, discovered in use
 
@@ -97,12 +98,12 @@ DSH's posture, applied to everything except the kernel: every shipped feature is
 
 - A disabled feature contributes zero prompt tokens, zero UI, and zero background work — disabling is subtraction, not hiding.
 - The kernel (section 2.3) is the one thing that is not a plugin. This is a deliberate disagreement with DSH, where the model adapter, session log, and even the agent loop are replaceable, and the reasons are specific:
-  - **The guarantees live there.** Log-is-truth (section 14.6), append-only cache discipline (section 7.1), tool call/result integrity (section 13), and deterministic replay (section 16.3) are all properties of one fixed event log. A swappable log means none of them can be promised — every install would be a different Bolt.
+  - **The guarantees live there.** Log-is-truth (section 15.6), append-only cache discipline (section 7.1), tool call/result integrity (section 14), and deterministic replay (section 17.3) are all properties of one fixed event log. A swappable log means none of them can be promised — every install would be a different Bolt.
   - **Security enforced below extensions (section 2.6) requires the policy layer to not be an extension.** If permissions and sandbox enforcement were plugins, any plugin could replace the boundary it is supposed to be behind.
   - **Everything interoperates through the kernel.** Clients, the SDK, the viewer, insights, session import, and compaction all assume one event format and one loop. Swap those per-install and the ecosystem fragments: sessions stop being portable, replays stop reproducing, bug reports stop meaning anything.
   - **DSH's flexibility serves framework builders; Bolt is a product.** The cost of a fully swappable core is carried by users — combinatorial testing surface, "which plugin broke it" debugging, and composition decisions that section 2.8 promises to never require.
 
-  Extensions still get defined interception points on the kernel — custom compaction (section 13), hooks, renderers — which is influence over kernel behavior without replacement of it.
+  Extensions still get defined interception points on the kernel — custom compaction (section 14), hooks, renderers — which is influence over kernel behavior without replacement of it.
 - First-party features get no private APIs. If Bolt's own features can be built on the extension API, third-party ones can too — the shipped features are the proof the API is sufficient.
 
 ## 3. User experience
@@ -186,14 +187,14 @@ Source retained at:
 
 An optional propose, approve, execute flow: the agent produces a plan before touching anything, and execution starts only after approval.
 
-Plan review is not a yes/no prompt. Plans open in a Plannotator-style annotation surface — terminal summary plus a local browser UI — where the user comments on exact text, marks steps for removal, edits the plan directly, or attaches a general note, then approves or sends the annotations back as structured feedback for revision. The same annotation surface reviews diffs from the review inbox (section 17.3).
+Plan review is not a yes/no prompt. Plans open in a Plannotator-style annotation surface — terminal summary plus a local browser UI — where the user comments on exact text, marks steps for removal, edits the plan directly, or attaches a general note, then approves or sends the annotations back as structured feedback for revision. The same annotation surface reviews diffs from the review inbox (section 18.3).
 
 ### 3.5 Project directory
 
 Bolt reads a `.bolt/` directory in the project alongside the global `~/.bolt/`:
 
 - Project-scoped skills, hooks, extensions, and prompt templates
-- The team profile lockfile (section 17.4)
+- The team profile lockfile (section 18.4)
 - Project settings and sandbox policy defaults
 - Project rules stay project-scoped: nothing in `.bolt/` is promoted into global learning (section 8.2)
 
@@ -227,10 +228,10 @@ Codex-style persistent objectives: `/goal <objective>` gives a session a stable 
 
 - A goal states its completion criteria up front, and completion must be demonstrated (tests pass, build green), never asserted.
 - Goals are persisted state: they survive pauses, disconnects, restarts, and placement moves, and resume where they left off.
-- A goal may fork attempts as branches (section 14.4) and spawn subagent children — test runners, reviewers, parallel attempts — under the spawn authority goals hold by default (section 6.2), bounded by the goal's budget.
-- Budgets (section 14.3) are the safety rail: a goal always runs under token, cost, and wall-clock ceilings, and pausing at a ceiling is a loud, resumable state — not a failure.
+- A goal may fork attempts as branches (section 15.4) and spawn subagent children — test runners, reviewers, parallel attempts — under the spawn authority goals hold by default (section 6.2), bounded by the goal's budget.
+- Budgets (section 15.3) are the safety rail: a goal always runs under token, cost, and wall-clock ceilings, and pausing at a ceiling is a loud, resumable state — not a failure.
 - Getting stuck is reported loudly, with what was tried and what is blocking. A goal never spins silently.
-- Goals follow the isolation-coupled permission default (section 9.2), with one addition: an unattended loop cannot answer prompts. A sandboxed goal therefore runs promptless at full speed — the sandbox and the budget are the checks — while a gated action in an unsandboxed goal pauses the goal as a loud blocker and pushes a notification (section 15.3) rather than waiting silently on a prompt nobody will see.
+- Goals follow the isolation-coupled permission default (section 9.2), with one addition: an unattended loop cannot answer prompts. A sandboxed goal therefore runs promptless at full speed — the sandbox and the budget are the checks — while a gated action in an unsandboxed goal pauses the goal as a loud blocker and pushes a notification (section 16.3) rather than waiting silently on a prompt nobody will see.
 - Mission control and the mobile app show goal progress; blocked and completed goals notify.
 
 ### 3.8 Vision, voice, and media
@@ -243,7 +244,7 @@ Image input is on by default in every client — paste, drag, or reference a fil
 
 Voice is supported in both directions — speech-to-text input and text-to-speech output — as per-client toggles, with the mobile app as the natural home. Recognition and synthesis are model roles like any other (section 2.7): independently selectable, local models welcome, capability-checked.
 
-All of this rides existing rails: media travels over the blob channel with references in the event log (section 14.5), and every cross-model handoff — vision description, OCR result, transcription — is a visible event, never invisible context.
+All of this rides existing rails: media travels over the blob channel with references in the event log (section 15.5), and every cross-model handoff — vision description, OCR result, transcription — is a visible event, never invisible context.
 
 ### 3.9 Talking while it works
 
@@ -422,7 +423,7 @@ The full set of things a user or package can add to Bolt:
 
 ### 5.2 Open standards first
 
-Bolt implements the AAIF-stewarded standards natively rather than inventing formats — this is what the "no another skill format" non-goal (section 18) looks like in the affirmative:
+Bolt implements the AAIF-stewarded standards natively rather than inventing formats — this is what the "no another skill format" non-goal (section 19) looks like in the affirmative:
 
 - **MCP** for external tool connectivity
 - **AGENTS.md** for instructions and context
@@ -508,16 +509,16 @@ Delegation is something the user invokes, not something the model decides. `/sub
 `/btw` opens a threaded side conversation: a side-channel branch of the session tree that sees everything the main agent has done, answers immediately while the main agent keeps working, and is never seen by the main agent.
 
 - Threads are first-class: `/btw <question>` starts one, `/btw continue [thread]` resumes it, and multiple named threads coexist.
-- A side thread forks from the main branch's current compacted surface (section 13), not the full raw history — that keeps opening one cheap and cache-friendly. The full log remains available as an explicit pull if the thread needs older detail.
+- A side thread forks from the main branch's current compacted surface (section 14), not the full raw history — that keeps opening one cheap and cache-friendly. The full log remains available as an explicit pull if the thread needs older detail.
 - A side thread can use tools under the session's normal permission and sandbox policy.
-- Side-channel branches are excluded from main-branch compaction (section 13).
+- Side-channel branches are excluded from main-branch compaction (section 14).
 - A thread's conclusions can be injected back into the main conversation as an explicit event, never silently.
 
 ### 6.6 Workflows
 
 Deterministic orchestration in the style of Claude Code workflows and Codex automations: a workflow is a plain script over the SDK that spawns subagent children — fan-out, pipelines, verify passes — with ordinary code deciding control flow instead of the model. Workflows are user-invoked like everything else in this section, their children appear in the tree and mission control, and each child carries its own model and effort level.
 
-This does not reopen the non-goal (section 18): there is no bespoke workflow language. A workflow is code over the same RPC surface every client uses — nothing to learn beyond the SDK. Existing Claude Code workflow scripts and Codex automations are adoption targets for the compiler like any other ecosystem resource.
+This does not reopen the non-goal (section 19): there is no bespoke workflow language. A workflow is code over the same RPC surface every client uses — nothing to learn beyond the SDK. Existing Claude Code workflow scripts and Codex automations are adoption targets for the compiler like any other ecosystem resource.
 
 ### 6.7 Agent definitions
 
@@ -603,12 +604,12 @@ standard  shell, read, edit, write, web_search, fetch_content
 
 The roster is semantically fixed, but its rendering is per-model: tool identity and tool dialect are separate layers. A provider adapter renders each canonical tool — shell, read, edit, write — in the dialect the active model was trained on: the tool names, schema shapes, and edit formats its vendor publishes as training-matched. The model sees its native dialect; the kernel, permission policy, sandbox, and event log see one canonical tool. This is what upgrades model-agnosticism (section 2.7) from a neutrality claim to a performance claim: every model plays on its home field, and the measured home-harness advantage — a few points, mostly formats — is recovered with data, not with a fork of the harness.
 
-Dialects are hot-swappable data files, not code: updating one needs no restart, and a model with no known dialect falls back to the generic rendering loudly (section 2.2), never silently. A dialect change applies at the next dialect boundary — a model switch, or an explicit `/reload` — because the provider-visible tool list freezes between boundaries (section 7.1); both are deliberate cache breaks, logged as config-change events. `/reload` is a command like any other (section 14.5): a thin RPC the user invokes directly and the model can reach through harness-control under normal permission policy, so "pick up the updated dialect" is something the agent can be asked to do mid-session.
+Dialects are hot-swappable data files, not code: updating one needs no restart, and a model with no known dialect falls back to the generic rendering loudly (section 2.2), never silently. A dialect change applies at the next dialect boundary — a model switch, or an explicit `/reload` — because the provider-visible tool list freezes between boundaries (section 7.1); both are deliberate cache breaks, logged as config-change events. `/reload` is a command like any other (section 15.5): a thin RPC the user invokes directly and the model can reach through harness-control under normal permission policy, so "pick up the updated dialect" is something the agent can be asked to do mid-session.
 
 To keep the roster honest, be precise about what a tool is. Bolt has four invocation directions, and only the first is a tool:
 
 - **Model → harness: tools.** The model decides to call these mid-turn. Very few things are tools: the standard roster (which already includes web access), the browser, MCP bridges, discovery, and the harness-control surface.
-- **User → harness: commands.** `/goal`, `/btw`, `/subagents`, `/learn`, `/adopt`, `/insights` — RPCs the user invokes (section 14.5). The model never calls a command; it can reach the same RPCs only through the harness-control tool when asked.
+- **User → harness: commands.** `/goal`, `/btw`, `/subagents`, `/learn`, `/adopt`, `/insights` — RPCs the user invokes (section 15.5). The model never calls a command; it can reach the same RPCs only through the harness-control tool when asked.
 - **Harness → model: roles.** Compaction, facet extraction, vision description — the harness calling a model, the inverse arrow of a tool (section 2.7).
 - **Harness → itself: machinery.** Hooks, the learning ledger, the tips engine, the reconciler — nothing invokes these conversationally.
 
@@ -672,7 +673,7 @@ Do not learn global instructions directly from:
 
 Session summaries may identify candidates, but candidates require supporting user-originated evidence before promotion.
 
-To be explicit about what this is not: Bolt has no ambient memory system. Nothing retrieves past-session content and injects it into the prompt uninvited — no vector store of conversation summaries, no invisible context stuffing. What persists across sessions is a small set of plain-text instruction rules in a visible AGENTS.md block, each one evidence-gated, ledgered (section 8.7), and regression-tracked. Recall of past work exists only as a pull: the agent or the user searches session history when they choose to (section 17.2), and anything brought forward arrives as an explicit, visible event.
+To be explicit about what this is not: Bolt has no ambient memory system. Nothing retrieves past-session content and injects it into the prompt uninvited — no vector store of conversation summaries, no invisible context stuffing. What persists across sessions is a small set of plain-text instruction rules in a visible AGENTS.md block, each one evidence-gated, ledgered (section 8.7), and regression-tracked. Recall of past work exists only as a pull: the agent or the user searches session history when they choose to (section 18.2), and anything brought forward arrives as an explicit, visible event.
 
 ### 8.2 Tier 1: managed instructions
 
@@ -794,7 +795,7 @@ The learning loop thereby gets the same treatment Bolt gives everything else: it
 
 When Bolt opens a new or unfamiliar project, the learning system proposes skills, hooks, and extensions that fit it — drawn from project inspection (languages, frameworks, scripts, CI) and from insights evidence about how the user actually works (section 8.6). A repo with a deploy script suggests a deploy hook; a stack the user repeatedly fights suggests a triage skill.
 
-Approval follows the tier controls (section 8): in manual tiers, a suggestion is a proposal requiring approval before anything is created. In auto tiers, the artifact is created automatically and announced — non-executable artifacts activate directly; executable hooks and extensions land in quarantine ready to enable, and activation keeps the one explicit approval that no setting removes (sections 8.4, 18). Created artifacts are project-scoped in `.bolt/` (section 3.5) unless the user promotes them.
+Approval follows the tier controls (section 8): in manual tiers, a suggestion is a proposal requiring approval before anything is created. In auto tiers, the artifact is created automatically and announced — non-executable artifacts activate directly; executable hooks and extensions land in quarantine ready to enable, and activation keeps the one explicit approval that no setting removes (sections 8.4, 19). Created artifacts are project-scoped in `.bolt/` (section 3.5) unless the user promotes them.
 
 Suggestions and announcements are client-surface only: printed to the screen, never injected into the session's model context. They cost zero prompt tokens and break no cache prefix (section 7.1); the model learns of a new artifact the way it learns of any capability — through the index, when relevant (section 7.5). Proposals are rate-limited and dismissible like tips (section 3.6); a dismissed suggestion never returns.
 
@@ -891,7 +892,7 @@ Whole-runtime or extension-process isolation is required for untrusted adopted e
 
 Browser and computer use are tools that live inside the sandbox, not beside it: the browser runs under the session's sandbox profile, its egress under the same network allowlists, its downloads inside the workspace mounts. The agent can drive the app it is building, take screenshots, and do web research — with no side door around network policy.
 
-The browser is the completeness escape hatch, not the primary path. The tool hierarchy is: shell and files first, MCP and APIs second, browser only where no API exists — driving a GUI by screenshot is the most expensive and least reliable action per click, so the agent must not reach for it when a connector does the job. With that hierarchy, the browser plus the chat surface covers most of what a cowork-style assistant product offers — general web tasks, forms, research, SaaS work — which is precisely what lets the cowork surface stay a non-goal (section 18). Authenticated browsing (cookies, logged-in sessions) is always an explicit per-site opt-in, never a default.
+The browser is the completeness escape hatch, not the primary path. The tool hierarchy is: shell and files first, MCP and APIs second, browser only where no API exists — driving a GUI by screenshot is the most expensive and least reliable action per click, so the agent must not reach for it when a connector does the job. With that hierarchy, the browser plus the chat surface covers most of what a cowork-style assistant product offers — general web tasks, forms, research, SaaS work — which is precisely what lets the cowork surface stay a non-goal (section 19). Authenticated browsing (cookies, logged-in sessions) is always an explicit per-site opt-in, never a default.
 
 ### 10.6 Web access
 
@@ -1005,7 +1006,51 @@ Prefer:
 
 Never persist cloud credentials in prompts, session logs, generated extensions, or adoption metadata.
 
-## 13. Compaction
+## 13. Subscription pooling
+
+Most users already hold more than one way to call a model: a personal subscription, a work API key, a team seat, a cloud-vendor endpoint, something local. Every harness makes them pick one and re-authenticate to switch, so hitting a limit means stopping. Adapting to the user (section 1) includes adapting to what they already pay for: Bolt treats the set of entitlements a user is authorized to use as one pool, and routing across it is a first-class, logged decision — not a hidden optimization.
+
+### 13.1 Members
+
+A pool member is one authenticated entitlement — a subscription OAuth session, an API key, a cloud role, or a local endpoint — carrying the provider and models it can serve, its known request and token windows, the identity it belongs to, a routing weight, and an enable flag. Credentials live in the secrets layer (section 12.4) and are referenced by id everywhere else; a pool definition contains no secrets.
+
+```json
+{
+  "pools": {
+    "default": {
+      "members": ["sub-personal", "sub-work", "api-overflow"],
+      "strategy": "sticky-session",
+      "onExhaustion": "spillover"
+    }
+  }
+}
+```
+
+Pools bind per role, not just per session. The main loop, side conversations, conversion workers, the permission classifier, and mechanical roles like OCR each select a pool the same way they select a model (section 2.7) — which is what makes "run the cheap roles on the API key and keep the subscription for the main loop" a one-line configuration rather than a fork in the runtime. Per section 2.8 none of this is required: a single entitlement is a pool of one, and the feature costs nothing until a second one exists.
+
+### 13.2 Selection and cache affinity
+
+Provider prompt caches are scoped to the entitlement, so moving a live session between members discards the cached prefix and re-bills the whole context. This makes cache affinity a routing input, not an afterthought, and it is why the default strategy is `sticky-session`: a session keeps one member until that member cannot serve it. `round-robin`, `weighted`, `least-utilized`, `priority`, and `pinned` are available, but per-request rotation is opt-in and warns about cache loss at configuration time — it is the one setting in this section that can quietly make a session cost more.
+
+A mid-session member switch is an explicit event with its reason, and the re-priming cost is attributed to the switch rather than absorbed into the turn that triggered it. Which member served each request is recorded in the log for the same reason model and effort are (section 2.4): it determines availability, limits, and price.
+
+### 13.3 Limits and exhaustion
+
+Each member carries observed state — `available`, `throttled` with a known retry-after, `exhausted` with a known reset time, `degraded` on an elevated error rate, and `failed` on revoked or invalid auth. Rate-limit responses update that state instead of only failing a request, using provider metadata where it exists and a conservative local estimate where it does not. Spillover to another member happens only for requests that are safe to retry, and a member that fails authentication is disabled and surfaced for reauthentication rather than retried in a loop.
+
+When every member is exhausted, Bolt reports the pool state and the earliest reset and stops (section 2.2). It does not silently fall back to a weaker model or a lower effort level to keep going — a pool that quietly changes what is answering the user is worse than a pool that says it is out. Downgrade on exhaustion may exist, but only as an explicit setting with an announced switch. Pool exhaustion pauses at the next safe boundary and resumes, in the same shape as a crossed budget (section 15.3).
+
+### 13.4 Boundaries
+
+- Members are added through each provider's normal authentication flow; Bolt never asks for credentials a provider would not hand it.
+- Per-member state is separate. Sessions, caches, conversation ids, and rate-limit counters do not cross members.
+- A pool mixes entitlements belonging to different people only when it is declared shared with its owners recorded. Credential sharing is not a default anyone stumbles into.
+- Extensions may request a completion from a pool; they may not enumerate it or read its secrets (section 2.6). Pooling widens capacity, never the credential surface.
+- A provider adapter can mark its entitlements ineligible for pooling where the provider's terms require it, and the kernel honors that flag — it is not configurable away.
+
+`/pool` reports each member's state, remaining known quota, reset time, current bindings, and cost so far; `/pool use`, `/pool disable`, and `/pool cost` cover the rest. Spend rolls up per member and per pool alongside the existing session and tree totals.
+
+## 14. Compaction
 
 Adopt Pi's compaction behavior and defaults as the compatibility target. Reuse Pi's MIT-licensed implementation where practical, preserving required notices and attribution.
 
@@ -1030,7 +1075,7 @@ Required behavior:
 
 Compatibility should be enforced with behavior tests against Pi fixtures rather than only copied implementation details.
 
-## 14. Session daemon and clients
+## 15. Session daemon and clients
 
 One authoritative daemon owns the session. Clients are projections over the same event protocol:
 
@@ -1060,33 +1105,33 @@ Capabilities:
 
 The web, terminal, and mobile clients must not implement separate agent loops.
 
-### 14.1 Session placement
+### 15.1 Session placement
 
 Mirroring the Claude app's mode structure (chat, cowork, code — with code split into remote control, local, and cloud), Bolt organizes its clients around one Code surface with three session placements:
 
 - `local`: the agent loop runs on the user's machine, driven from the terminal, desktop, or local web client.
 - `cloud`: the session runs on a cloud worker in an OCI sandbox (sections 11 and 12); any client can spawn one.
-- `attach`: remote control of an existing session from phone or web — a projection with steering rights, never a second loop (section 15.3).
+- `attach`: remote control of an existing session from phone or web — a projection with steering rights, never a second loop (section 16.3).
 
-Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. `bolt web` serves the web client on localhost with two modes, DSH-style: **code**, the full session UI, and **chat**, a zero-tool chat profile for using the harness as a local chat app — same daemon, same event log, one toggle apart. A general cowork-style assistant surface is out of scope initially (section 18).
+Placement is only where the loop runs; every placement speaks the same daemon protocol and event log, and a session can move between placements via cloud transfer. `bolt web` serves the web client on localhost with two modes, DSH-style: **code**, the full session UI, and **chat**, a zero-tool chat profile for using the harness as a local chat app — same daemon, same event log, one toggle apart. A general cowork-style assistant surface is out of scope initially (section 19).
 
-Parallel sessions on the same repository isolate their working state in git worktrees, so mission control (section 17.3) can run several agents against one repo without them fighting over files. Worktrees are created on demand when a session opens an already-busy repo and cleaned up automatically when a session ends without changes.
+Parallel sessions on the same repository isolate their working state in git worktrees, so mission control (section 18.3) can run several agents against one repo without them fighting over files. Worktrees are created on demand when a session opens an already-busy repo and cleaned up automatically when a session ends without changes.
 
-### 14.2 Checkpoint and rewind
+### 15.2 Checkpoint and rewind
 
 The event-sourced log already makes conversation state replayable; checkpointing extends that to the workspace. Every turn that modifies files records a workspace snapshot, and a session can rewind to any turn — conversation and files together, or either alone. Snapshots use copy-on-write where the filesystem supports it, with git-based shadow commits as the fallback. Rewind never rewrites the user's own git history.
 
 Rewind's scope is stated honestly: it restores the workspace and the conversation. Writes outside the workspace that policy allowed (section 10.2) are not reverted — each checkpoint records them, and a rewind lists what it could not undo rather than implying a total undo.
 
-### 14.3 Session budgets
+### 15.3 Session budgets
 
 A session can carry token, cost, and wall-clock budgets. Crossing a budget pauses the loop loudly at the next safe boundary rather than killing work mid-write, and budget state is visible in every attached client. Cloud sessions inherit the resource leases in section 11 on top of this.
 
-### 14.4 Tree sessions
+### 15.4 Tree sessions
 
-A session is a tree of turns, not a list. This is Pi's session model, adopted deliberately: Pi already stores sessions as an id/parentId tree with in-place branching (`/tree`, `/fork`, `/clone`) and branch summarization. Every event carries an id and a parent id; branching, rewind (section 14.2), and forked-history children (section 6.3) are all the same operation — start a new branch from an existing node. Nothing is ever destroyed by branching: the old branch remains addressable, compaction summarizes per branch (section 13), and clients render the tree rather than pretending the session is linear.
+A session is a tree of turns, not a list. This is Pi's session model, adopted deliberately: Pi already stores sessions as an id/parentId tree with in-place branching (`/tree`, `/fork`, `/clone`) and branch summarization. Every event carries an id and a parent id; branching, rewind (section 15.2), and forked-history children (section 6.3) are all the same operation — start a new branch from an existing node. Nothing is ever destroyed by branching: the old branch remains addressable, compaction summarizes per branch (section 14), and clients render the tree rather than pretending the session is linear.
 
-### 14.5 Protocol and SDK
+### 15.5 Protocol and SDK
 
 The SDK is deliberately thin because the daemon owns all behavior; a client is transport plus rendering. The surface is:
 
@@ -1096,17 +1141,17 @@ The SDK is deliberately thin because the daemon owns all behavior; a client is t
 - **Resumable cursors**: every event has an id; reconnection resumes from the last acknowledged id with at-least-once delivery, so a phone losing signal misses nothing.
 - **Idempotency keys on sends**: a client retrying over a flaky network must never double-send a message or a permission grant.
 - **A blob channel** separate from the event stream for large payloads — artifacts, images, file uploads. The event log carries references, never megabytes.
-- **Auth and pairing**: revocable per-device credentials with capability scopes; an observer credential can stream but not steer (section 15.3).
+- **Auth and pairing**: revocable per-device credentials with capability scopes; an observer credential can stream but not steer (section 16.3).
 - **Capability negotiation**: client and daemon exchange protocol version and feature sets on connect, and mismatches degrade loudly (open decision 5 covers the versioning scheme).
 - **Presence**: who else is attached to the session, so simultaneous terminal, web, and mobile clients can indicate each other.
 
-All client SDKs are generated from one protocol schema — the TypeScript, Swift, Kotlin, and Rust clients are codegen over the same definitions, not four hand-written libraries. Transports are pluggable beneath the same surface: Unix socket locally, WebSocket through the relay remotely. MCP remains the protocol for external tool servers; Bolt is an MCP client, never a replacement (section 18).
+All client SDKs are generated from one protocol schema — the TypeScript, Swift, Kotlin, and Rust clients are codegen over the same definitions, not four hand-written libraries. Transports are pluggable beneath the same surface: Unix socket locally, WebSocket through the relay remotely. MCP remains the protocol for external tool servers; Bolt is an MCP client, never a replacement (section 19).
 
 Commands are RPCs, and that closes a gap other harnesses have: in Pi, slash commands live inside the TUI process, so the model has no path to them — the user can never say "resume yesterday's session about the auth bug" and have the agent do it. In Bolt, every slash command is a thin client wrapper over a daemon RPC, and a scoped harness-control tool exposes that same RPC surface to the model. It is a native first-party tool but not a resident one: it lives behind the capability index (section 7.5) with an index line, loads when a request actually calls for harness operations, and costs nothing in every session that never needs it. Anything the user can do with a command, the agent can do when asked in natural language — find and resume a session, branch, compact, switch model — under the session's normal permission policy, with every harness action it takes logged like any other tool call.
 
 One carve-out keeps this consistent with section 6.2: authority-gated RPCs — spawning children, setting goals — are not reachable through harness-control unless the session already holds the authority. When the user asks for something authority-gated in natural language ("spawn a reviewer on this diff"), the harness turns the request into a one-tap confirmation, and that confirmation is the user authority being exercised. The model can propose delegation; only the user grants it.
 
-### 14.6 Session storage
+### 15.6 Session storage
 
 Storage is split into a canonical log and a derived index, each in the format that suits its job:
 
@@ -1116,9 +1161,9 @@ Storage is split into a canonical log and a derived index, each in the format th
 - The write path is: append to JSONL first, then update whatever index exists. An index may lag; the log may not. If they disagree, the log wins and the index is rebuilt.
 - Cloud workers durably append and upload only JSONL (section 11); each client maintains its own local caches and index. Index files never cross machines.
 
-## 15. Interface direction
+## 16. Interface direction
 
-### 15.1 Terminal
+### 16.1 Terminal
 
 Use Pi's rendering principles:
 
@@ -1131,7 +1176,7 @@ Use Pi's rendering principles:
 - IME-safe cursor placement
 - Responsive layouts
 
-### 15.2 Web
+### 16.2 Web
 
 Use DSH's plugin-oriented presentation principles:
 
@@ -1142,7 +1187,7 @@ Use DSH's plugin-oriented presentation principles:
 - Live permission and sandbox state
 - Detachable and reconnectable sessions
 
-### 15.3 Mobile
+### 16.3 Mobile
 
 The mobile app is a remote-control client over the same daemon protocol, in the way Claude Code and Codex expose sessions on a phone. It runs no agent loop of its own and is a projection like every other client.
 
@@ -1163,9 +1208,9 @@ Requirements:
 - Read-only observer mode for watching a session without steering rights
 - Notification payloads exclude secrets and full file contents
 
-The apps are native per platform — SwiftUI on iOS, Jetpack Compose on Android — not Flutter or React Native. Because the client is a projection with almost no business logic, a cross-platform framework saves little while blocking the platform features this app lives on: iOS Live Activities showing a running session's status on the lock screen, Android foreground services with approve/deny actions in the notification shade, widgets, share sheets, and native streaming-text performance for live transcripts. The protocol client, event sync, reconnection, and auth live in the shared core generated from the protocol schema (section 14.5), so the per-platform code is UI only.
+The apps are native per platform — SwiftUI on iOS, Jetpack Compose on Android — not Flutter or React Native. Because the client is a projection with almost no business logic, a cross-platform framework saves little while blocking the platform features this app lives on: iOS Live Activities showing a running session's status on the lock screen, Android foreground services with approve/deny actions in the notification shade, widgets, share sheets, and native streaming-text performance for live transcripts. The protocol client, event sync, reconnection, and auth live in the shared core generated from the protocol schema (section 15.5), so the per-platform code is UI only.
 
-### 15.4 Headless and automation
+### 16.4 Headless and automation
 
 The same daemon serves non-interactive callers:
 
@@ -1176,7 +1221,7 @@ The same daemon serves non-interactive callers:
 - Automation runs under the same daemon, log, budgets, and sandbox rules as interactive sessions; there is no separate headless code path.
 - Authority and provenance: a trigger acts with the authority of the user who configured it. A schedule or event subscription that starts a goal is that user's spawn authority (section 6.2), exercised in advance; every triggered session records which trigger fired and which user it acts for.
 
-### 15.5 Session viewer
+### 16.5 Session viewer
 
 A DSH-style session viewer is the observability surface over the event log and its index:
 
@@ -1185,15 +1230,15 @@ A DSH-style session viewer is the observability surface over the event log and i
 - Tool call inspection: inputs, outputs, duration, sandbox profile applied
 - Permission decisions and classifier reasons (section 9.3), as logged
 - Compaction events with before and after context sizes
-- Cross-session search and filtering, backed by the caches and search index (section 14.6)
+- Cross-session search and filtering, backed by the caches and search index (section 15.6)
 - Live tail of running sessions, local and cloud, in the same view
 - Export of any subtree as a plain JSONL slice
 
 The viewer is a read-only projection over the same protocol as every other client; it introduces no second data path.
 
-## 16. Compatibility and diagnostics
+## 17. Compatibility and diagnostics
 
-### 16.1 Doctor
+### 17.1 Doctor
 
 ```text
 /doctor
@@ -1214,7 +1259,7 @@ Reports:
 - Generated extensions awaiting approval
 - Leaked or orphaned cloud resources
 
-### 16.2 Compatibility catalog
+### 17.2 Compatibility catalog
 
 Publish tested compatibility status for real plugins. Plugin authors should be able to run the same conformance suite in their CI.
 
@@ -1228,44 +1273,44 @@ The catalog is also the measure of the adoption thesis itself. The seed corpus �
 
 A compiler that cannot clear this bar on the corpus is not keeping the promise in section 1, and the catalog exists to make that visible rather than anecdotal.
 
-### 16.3 Deterministic replay
+### 17.3 Deterministic replay
 
 Because sessions are event-sourced, a recorded session is a test fixture for free. Replay has two modes with different stubbing:
 
 - **Regression replay** stubs both model responses and tool results from the log. Nothing executes, nothing is spent, and the run is fully deterministic — it catches regressions in the harness itself: event handling, compaction, permission decisions, rendering.
 - **Bench replay** substitutes live models and re-executes tools for real, always inside a disposable sandboxed workspace so replayed side effects land nowhere real. This is the personal model bench: real workflows replayed from the user's own history to compare models on the user's own tasks, so the benchmark suite is the user's actual work.
 
-## 17. Feature directions
+## 18. Feature directions
 
 Beyond the core, these are the features Bolt's own primitives make uniquely possible.
 
-### 17.1 From the session tree
+### 18.1 From the session tree
 
 - **What-if branches**: re-run any node's branch with a different model, prompt, or approach; compare the branches side by side and keep the winner.
 - **Second opinion**: one command to have a different model review the current branch's diff. Model-agnosticism makes cross-model review nearly free, and it catches the blind spots a model has about its own work.
 - **Shareable replays**: export any subtree as a scrubbable replay link — for bug reports, teaching, and showing what the agent did.
 
-### 17.2 From insights and learning
+### 18.2 From insights and learning
 
 - **Cost autopilot**: close the loop on spend analysis — route mechanical tasks to cheaper models, escalate on failure, and log every routing decision with its reason.
 - **Guardrails from your own mistakes**: a repeated failure pattern detected by insights becomes a drafted tier 2 hook that blocks or warns. The agent stops making the user's recurring mistakes, specifically.
 - **Cross-session recall**: on request, search past session facets to reapply an old fix instead of re-deriving it. Strictly pull-based — nothing from past sessions enters the prompt uninvited (section 8.1).
-- **Daily digest**: an end-of-day summary of what every session did, what it cost, and what is waiting on the user — delivered over the same notification channel as section 15.3, not a separate system.
+- **Daily digest**: an end-of-day summary of what every session did, what it cost, and what is waiting on the user — delivered over the same notification channel as section 16.3, not a separate system.
 
-### 17.3 From the daemon and placements
+### 18.3 From the daemon and placements
 
 - **Mission control**: one view of every running session across repos and placements — status, cost, current blocker — with the mobile app as the pocket version.
 - **Live app preview**: a cloud session tunnels its dev server to the phone, so the user watches the running app change while steering the agent from the same screen.
 - **Review inbox**: agents deliver finished diffs into an inbox that is reviewed and approved in batches, from any client.
 
-### 17.4 From adoption and sandboxing
+### 18.4 From adoption and sandboxing
 
 - **Team profile in the repo**: a checked-in profile lockfile gives a new teammate the team's exact skills, hooks, adopted packages, and sandbox policy in one run.
 - **Personal config sync**: the user's own skills, hooks, and settings follow them across their machines — distinct from the team profile.
 - **Privacy switch**: per-session zero-egress mode with a local model, enforced by sandbox network policy rather than promises.
 - **Blind secrets**: the model reads placeholders; real values are injected only at execution time inside the sandbox. The agent uses credentials it never sees.
 
-## 18. Explicit non-goals
+## 19. Explicit non-goals
 
 Bolt should not add:
 
@@ -1280,20 +1325,22 @@ Bolt should not add:
 - A general cowork-style assistant surface before the Code surface is excellent
 - An ambient memory system that injects past-session content into the prompt uninvited
 
-## 19. Open decisions
+## 20. Open decisions
 
 1. Product name: Bolt (screw-bolt-as-lightning-bolt logo). Decided as the working name; the package namespace and npm scope remain open.
 2. Default permission profile: decided — coupled to isolation, `direct` when an enforced sandbox is active, `auto` when confinement is unavailable (section 9.2). Routine mediation exists only where a real boundary does not.
 3. Exact compatibility surface promised for the first Pi, OpenCode, and DSH release.
 4. Whether adopted extensions are always isolated or may be promoted to trusted in-process execution.
-5. Protocol versioning for the client wire format. The at-rest format is decided: JSONL event log as source of truth with derived caches and a search index (section 14.6).
+5. Protocol versioning for the client wire format. The at-rest format is decided: JSONL event log as source of truth with derived caches and a search index (section 15.6).
 6. First cloud provider to support before generalizing all three.
 7. Global and project learning budgets.
 8. Whether cloud transfer moves a session or creates a fork.
 9. Licensing and attribution policy for reused Pi code.
 10. Whether the mobile app connects through a hosted relay service or direct daemon pairing first.
+11. Whether a pool may span providers by default, or only entitlements of the same provider and model family (section 13.2).
+12. Whether shared team pools ship in the first release, or pooling stays single-owner until the ownership and accounting model is proven (section 13.4).
 
-## 20. Success criteria
+## 21. Success criteria
 
 The initial product thesis is proven when a user can:
 
@@ -1308,14 +1355,15 @@ The initial product thesis is proven when a user can:
 9. Detach and reconnect without losing work.
 10. Update or roll back the adopted plugin safely.
 11. Watch and steer a cloud session from the mobile app, including answering a permission request from the phone.
+12. Add a second entitlement to a pool and keep working when the first hits its limit, with the switch, its reason, and its cache cost shown rather than inferred.
 
-## 21. FAQ
+## 22. FAQ
 
 **Why not just use DeepSeek Harness?**
 DSH makes everything a plugin, including the loop, the log, and the policy layer. Bolt adopts that posture for features (section 2.9) but keeps the kernel fixed, because the guarantees — log-is-truth, replay, a security boundary plugins cannot replace — are properties of a core nothing can swap out. DSH's flexibility serves framework builders; Bolt is a product.
 
 **Why not just fork Pi?**
-Bolt reuses Pi where Pi is right — the agent loop, compaction, the provider API, prompt minimalism, cache discipline, and its tree-session JSONL format, which Bolt keeps nearly as-is (section 14.6). What Pi does not have as one product: the adoption compiler, a single authoritative daemon with terminal, web, mobile, and IDE clients speaking one protocol (Pi's core is a TUI; web front-ends and daemons exist as separate community projects), placements with cloud transfer, sandboxing as enforced policy, and the learning loop. Pi is an ingredient, not the product.
+Bolt reuses Pi where Pi is right — the agent loop, compaction, the provider API, prompt minimalism, cache discipline, and its tree-session JSONL format, which Bolt keeps nearly as-is (section 15.6). What Pi does not have as one product: the adoption compiler, a single authoritative daemon with terminal, web, mobile, and IDE clients speaking one protocol (Pi's core is a TUI; web front-ends and daemons exist as separate community projects), placements with cloud transfer, sandboxing as enforced policy, and the learning loop. Pi is an ingredient, not the product.
 
 **Is this another Claude Code clone?**
 No. The thesis is that Bolt adapts to you instead of you adapting to it (section 1): it adopts your existing ecosystems, configures itself, learns from how you work, extends itself when it falls short, and meets you on any client with any model — plus tree sessions, no default subagents, and observability down to every logged decision.
@@ -1327,16 +1375,19 @@ That is the core promise. Resources on the AAIF open standards — MCP, AGENTS.m
 Yes — arguably more elegantly than harnesses that bake them in. In Bolt a subagent is simply a session with a parent (section 6): same lifecycle, same log, same visibility as any session, with its own model, effort, tools, and placement, and results returning as explicit attributed events. What Bolt refuses is an ambient spawn tool in an ordinary session, because model-decided delegation there means unpredictable spend and behavior. Instead, spawning flows through four authorities — you (`/subagents`, `/btw`), scripts (workflows), goals (which hold spawn authority by default, bounded by their budget), and the system. You get everything built-in subagents offer, plus things they don't: every child inspectable and replayable, budgets that roll up the tree, per-child model choice, agent definitions swappable as plain files (section 6.7), and even other harnesses — Claude Code, Codex — driveable as children.
 
 **How is Bolt built?**
-With Bolt, as early as possible. The bootstrap skeleton — built with an existing harness — is the minimal profile (section 7.3) plus the one thing that cannot be retrofitted: the JSONL event format and tree (section 14.6), done right before anything else, since every guarantee hangs on it. The day Bolt can edit its own source and run its own tests, development switches to Bolt building Bolt. Dogfooding is structural, not sentimental: the learning loop (section 8) and insights engine (section 8.6) can only be validated by sustained real sessions — the build history is their first corpus — and first-party features built on the public API are the proof the API is sufficient (section 2.9). Two honesty rules: fall back to another harness without ceremony when Bolt is the thing being debugged, and recruit outside users early for the zero-config and adoption claims, which the author — who knows every setting — is the worst possible test of. What to build next is sequenced by felt absence during real use, which is why this document carries no delivery phases.
+With Bolt, as early as possible. The bootstrap skeleton — built with an existing harness — is the minimal profile (section 7.3) plus the one thing that cannot be retrofitted: the JSONL event format and tree (section 15.6), done right before anything else, since every guarantee hangs on it. The day Bolt can edit its own source and run its own tests, development switches to Bolt building Bolt. Dogfooding is structural, not sentimental: the learning loop (section 8) and insights engine (section 8.6) can only be validated by sustained real sessions — the build history is their first corpus — and first-party features built on the public API are the proof the API is sufficient (section 2.9). Two honesty rules: fall back to another harness without ceremony when Bolt is the thing being debugged, and recruit outside users early for the zero-config and adoption claims, which the author — who knows every setting — is the worst possible test of. What to build next is sequenced by felt absence during real use, which is why this document carries no delivery phases.
 
 **Why is there no memory system?**
-Ambient memory injects stale content invisibly, breaks the prompt cache, and makes behavior unexplainable. Bolt persists a small, visible, evidence-gated rule set (section 8) and offers recall only as an explicit pull (section 17.2). Memory extensions can be adopted by those who want them; they will never be core.
+Ambient memory injects stale content invisibly, breaks the prompt cache, and makes behavior unexplainable. Bolt persists a small, visible, evidence-gated rule set (section 8) and offers recall only as an explicit pull (section 18.2). Memory extensions can be adopted by those who want them; they will never be core.
 
 **Where does my data live?**
-Session logs are JSONL files on your machine (section 14.6). Cloud workers append and upload logs to storage you control; indexes and caches are derived locally and never leave. Secrets are redacted at log-write time (section 2.4).
+Session logs are JSONL files on your machine (section 15.6). Cloud workers append and upload logs to storage you control; indexes and caches are derived locally and never leave. Secrets are redacted at log-write time (section 2.4).
 
 **Which model should I use?**
-Any — that is the point. Every role takes any capable provider, local models included, and tool dialects (section 7.4) render the core tools in each model's trained format, so no model is handicapped by foreign tool schemas. The personal model bench (section 16.3) then answers the question empirically from your own sessions rather than from benchmarks.
+Any — that is the point. Every role takes any capable provider, local models included, and tool dialects (section 7.4) render the core tools in each model's trained format, so no model is handicapped by foreign tool schemas. The personal model bench (section 17.3) then answers the question empirically from your own sessions rather than from benchmarks.
+
+**I have more than one subscription and an API key. Can Bolt use them together?**
+Yes — that is subscription pooling (section 13). Entitlements you are authorized to use form one capacity pool: sessions stick to one member for prompt-cache reasons, spill over when it throttles or resets, and roll cost up per member. Roles can point at different pools, so cheap mechanical work runs on the key while the main loop keeps the subscription. What it will not do is quietly swap in a weaker model when the pool runs dry, or share credentials between people unless the pool is explicitly declared shared.
 
 **Do I have to configure all of this?**
 No (section 2.8). Everything ships with working defaults, features introduce themselves as one-line tips while you work (section 3.6), and anything you don't use can be disabled — or will eventually offer to disable itself (section 8.4).
