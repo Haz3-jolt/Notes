@@ -81,8 +81,9 @@ Most of what makes a great agent is the underlying model; the harness is what le
 - Pi's provider API is the model abstraction; no second abstraction is layered on top (section 19).
 - Tool dialects (section 7.4): provider adapters render the canonical tool roster in each model's trained schema and edit format, so switching models never means playing away from home.
 - Every model-calling role is independently selectable: the main agent loop, side conversations (/btw), adoption conversion workers, the permission classifier, compaction summarization, vision description, OCR, speech recognition, speech synthesis, facet extraction, and insight generation.
-- Reasoning effort is first-class alongside model choice: every role and every subagent child carries an effort level (low through max), switchable mid-session and logged as a config change.
-- Per section 2.8, every role defaults without configuration: the main model where capability allows, the cheapest capable model for mechanical roles (OCR, facet extraction). Nobody has to configure a role to use a feature.
+- Thinking level is first-class alongside model choice: every role and every subagent child carries one, switchable mid-session and logged as a config change. Bolt adopts Pi's model wholesale — levels, per-model capability maps, clamping, and token budgets (section 7.6).
+- Per section 2.8, roles that can default do: the main model where capability allows, the cheapest capable model for text-only mechanical roles like facet extraction. Nobody has to configure a role to use a feature.
+- The media roles are the exception, and deliberately so: OCR, speech recognition, and speech synthesis ship **disabled with no default model**. Most people have no speech model configured and no wish to acquire one, and picking a default here means either silently reaching for a hosted service the user never chose or shipping a capability that fails on first use. Neither is acceptable, so the honest default is off (section 3.8).
 - The kernel makes no vendor-specific prompt assumptions. Provider quirks live in provider adapters.
 - A model lacking a capability a role requires (tool calling, structured output) fails loudly at selection time instead of degrading silently.
 - Local models are first-class providers, subject to the same capability checks.
@@ -91,6 +92,8 @@ Most of what makes a great agent is the underlying model; the harness is what le
 ### 2.8 Zero-config, discovered in use
 
 Bolt has many capabilities and therefore many settings — and that is exactly why none of them may be required. Every option ships with a default good enough that a user who never opens a config file gets an excellent agent. Features are discovered while using the product (section 3.6), not chosen up front: there is no setup wizard, no mandatory profile selection, no decision gauntlet on first launch. The adoption scan is the entire onboarding. Configuration exists for the users who go looking for it.
+
+One clarification, since "sensible default" is not always a value: where the honest default is *off*, the default is off. A capability that would need a resource most users do not have — a speech model, a hosted transcription service — ships disabled and says what to configure when reached for, rather than picking something on the user's behalf or failing at the moment of use (sections 2.7, 3.8). Zero-config means never being made to choose, not being opted into everything.
 
 ### 2.9 Batteries included, removable
 
@@ -240,9 +243,11 @@ Image input is on by default in every client — paste, drag, or reference a fil
 
 - A vision-capable main model receives the image directly.
 - A main model without vision gets a clear disclaimer — never a silent drop. If a vision model is configured for the vision-description role, it describes the image and the description enters the conversation as an explicit, attributed event; the user always knows the main model saw a description, not the pixels.
-- OCR-only tasks (reading a screenshot of text, a receipt, an error dialog) route to a dedicated OCR role, typically a cheap fast model, instead of burning main-model tokens.
+- OCR-only tasks (reading a screenshot of text, a receipt, an error dialog) can route to a dedicated OCR role — typically a cheap fast model — instead of burning main-model tokens. With no OCR model configured, which is the default, the image goes to the main model like any other and nothing is lost but a little cost.
 
 Voice is supported in both directions — speech-to-text input and text-to-speech output — as per-client toggles, with the mobile app as the natural home. Recognition and synthesis are model roles like any other (section 2.7): independently selectable, local models welcome, capability-checked.
+
+The media roles — OCR, speech recognition, speech synthesis — are off by default and carry no default model. This is the one place where zero-config (section 2.8) means "off" rather than "sensible default", and the reasoning is that most users have no speech model and never will: a default here would either route their voice to a hosted service they never chose, or ship a feature that breaks the first time it is touched. So Bolt ships neither. The capabilities are present, disabled, and honest about it — a voice toggle with nothing configured says what to configure, rather than failing at the moment of use. Anyone who wants them turns them on and names a model, local or hosted; anyone who does not pays nothing: no prompt tokens, no UI, no background work, no downloads, per section 2.9. Vision is different and stays on: image input works with any vision-capable main model with nothing to configure, and only the vision-*description* fallback for non-vision models needs a model named.
 
 All of this rides existing rails: media travels over the blob channel with references in the event log (section 15.5), and every cross-model handoff — vision description, OCR result, transcription — is a visible event, never invisible context.
 
@@ -430,13 +435,15 @@ Bolt implements the AAIF-stewarded standards natively rather than inventing form
 - **Agent Skills** for skill documents
 - **Agent Plugins 1.0** as a first-class install format: a standard plugin — skills plus MCP servers in one directory — installs directly at compatibility level `native`, no conversion pass needed
 
+The same posture extends past the AAIF set wherever a real standard already exists: OCI image, runtime, and distribution specs for containers, and `devcontainer.json` for repository environments (section 11). Bolt has no container config format of its own and will not grow one.
+
 The adoption compiler (section 4) exists for the proprietary and divergent formats; anything already on the open standards walks in the front door. As ecosystems converge on Agent Plugins, Bolt's adoption burden shrinks by itself — betting on the standard is betting on our own future workload going down.
 
 Skipping conversion never means skipping trust. Adoption bundles two separable things — format conversion and the trust pipeline — and only conversion is waived for open-standard resources. Every installable, standard or proprietary, passes the same trust pipeline: declared capabilities, an explicit permission grant at install, and the isolation policy of section 10.4. An MCP server inside a standards-compliant plugin is still arbitrary code; the front door has the same metal detector as the side door.
 
 ## 6. Subagents
 
-One unified model: a subagent is a session with a parent. Every form of delegation — a review child, a side conversation, a workflow stage, a goal attempt, an adoption worker — is the same mechanism: a child session spawned over the same RPC every client uses, visible in the tree and mission control, with its own model, effort, tools, and placement. What differs between forms is only who is allowed to spawn (section 6.2).
+One unified model: a subagent is a session with a parent. Every form of delegation — a review child, a side conversation, a workflow stage, a goal attempt, an adoption worker — is the same mechanism: a child session spawned over the same RPC every client uses, visible in the tree and mission control, with its own model, thinking level, tools, and placement. What differs between forms is only who is allowed to spawn (section 6.2).
 
 ### 6.1 Default policy
 
@@ -492,7 +499,7 @@ The external harness child is the interop story: Bolt can drive another harness 
 
 The contract, in full:
 
-- **Spawn request**: an agent definition name (section 6.7) or an ad-hoc spec — model, effort, tool set, placement, history mode (fresh or forked from a tree node), isolation (own worktree, own sandbox), an optional structured-output expectation, and a budget slice. The spawning authority and parent are recorded on the child, always.
+- **Spawn request**: an agent definition name (section 6.7) or an ad-hoc spec — model, thinking level (section 7.6), tool set, placement, history mode (fresh or forked from a tree node), isolation (own worktree, own sandbox), an optional structured-output expectation, and a budget slice. The spawning authority and parent are recorded on the child, always.
 - **Identity**: a child is a full session — its own log, its own node under its parent in the tree, visible in mission control and the viewer, replayable and branchable like any other session. There are no lesser, invisible agents.
 - **Results return explicitly**: a child finishing produces a result event in the parent — its conclusions or structured output, attributed to the child — never a silent merge of the child's transcript into the parent's context. The parent's context stays clean; the child's full log stays one click away.
 - **Budgets roll up**: children draw from their parent's budget. A subagent can never spend what its parent does not have, and a goal's total cost is the whole tree under it.
@@ -502,7 +509,7 @@ The contract, in full:
 
 ### 6.4 Explicit subagents (/subagents)
 
-Delegation is something the user invokes, not something the model decides. `/subagents` spawns child sessions over the daemon RPC — each with its own chosen model, effort level, tools, and placement — for jobs like a cross-model review or a cheap-model test sweep. Children appear in mission control and in the session tree like any other session. There is no subagent tool in the model's hands by default and no delegation prose in the prompt, ever (section 2.5).
+Delegation is something the user invokes, not something the model decides. `/subagents` spawns child sessions over the daemon RPC — each with its own chosen model, thinking level, tools, and placement — for jobs like a cross-model review or a cheap-model test sweep. Children appear in mission control and in the session tree like any other session. There is no subagent tool in the model's hands by default and no delegation prose in the prompt, ever (section 2.5).
 
 ### 6.5 Side conversations (/btw)
 
@@ -516,7 +523,7 @@ Delegation is something the user invokes, not something the model decides. `/sub
 
 ### 6.6 Workflows
 
-Deterministic orchestration in the style of Claude Code workflows and Codex automations: a workflow is a plain script over the SDK that spawns subagent children — fan-out, pipelines, verify passes — with ordinary code deciding control flow instead of the model. Workflows are user-invoked like everything else in this section, their children appear in the tree and mission control, and each child carries its own model and effort level.
+Deterministic orchestration in the style of Claude Code workflows and Codex automations: a workflow is a plain script over the SDK that spawns subagent children — fan-out, pipelines, verify passes — with ordinary code deciding control flow instead of the model. Workflows are user-invoked like everything else in this section, their children appear in the tree and mission control, and each child carries its own model and thinking level.
 
 This does not reopen the non-goal (section 19): there is no bespoke workflow language. A workflow is code over the same RPC surface every client uses — nothing to learn beyond the SDK. Existing Claude Code workflow scripts and Codex automations are adoption targets for the compiler like any other ecosystem resource.
 
@@ -530,14 +537,14 @@ Named, swappable agent definitions live in an agents folder — `.bolt/agents/` 
 name: reviewer
 description: Adversarial review of a diff, reports findings with evidence
 model: provider/model-id
-reasoning: high
+thinking: high
 tools: [read, shell, web_search]
 exec: sandbox-only   # open | sandbox-only | cloud-only | local-only
 ```
 
 - The body below the frontmatter is the agent's prompt. The description doubles as the capability index line (section 7.5), so writing a good description is writing the agent's discoverability.
 - The `exec` field constrains placement: a definition marked `sandbox-only` can never spawn unsandboxed, whoever invokes it — the constraint travels with the definition, and per the child contract (section 6.3) it can only be narrowed further at spawn, never widened.
-- Definitions are data, not code: swap the model or effort in the file and the next spawn uses it — no reinstall, no restart.
+- Definitions are data, not code: swap the model or thinking level in the file and the next spawn uses it — no reinstall, no restart.
 - `/subagents`, workflows, and goals spawn by definition name; ad-hoc spawns without a definition remain possible.
 - Claude Code agent definitions (`.claude/agents/`) are an adoption target like any other resource (section 4).
 
@@ -631,6 +638,26 @@ The same progressive disclosure users get (section 3.6) applies to the model: ca
 Mechanically, the index is built from metadata that already exists: the YAML frontmatter of skills and agent definitions — the `description` field is the index line — and each extension's manifest. Loading is an ordinary tool call in the loop: the model asks, the full body or schema comes back as the tool result, appended to history like any message. For tool schemas there is one subtlety: the provider-visible tool list is part of the cached prompt prefix, so discovery must not grow it. Bolt keeps that list fixed — core roster, discovery, and a generic invoke — and calls discovered tools through registry-validated dispatch, so the prefix stays byte-identical for the whole session (section 7.1).
 
 The payoff is compounding: Bolt can ship dozens of capabilities while a simple session pays for six tools and an index — and the model, like the user, learns the product by using it.
+
+### 7.6 Thinking levels
+
+What other harnesses call reasoning effort, Bolt calls a thinking level, and it takes Pi's implementation as the specification rather than inventing a scale. Pi already solved the hard part — every provider expresses reasoning differently, and a harness that exposes one honest dial across all of them has to absorb that mess somewhere below the user.
+
+**The scale.** Seven values: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. The default is `medium`, resolved as user setting → current session level → `medium`. `off` omits the reasoning parameter from the request entirely rather than sending a zero.
+
+**Support is per model, from the registry.** Each model carries a thinking-level map — Bolt's level to that model's provider value, where a null entry means the level is unsupported and a missing entry means "send the provider default". The map is generated from models.dev metadata, which classifies reasoning control as a toggle, an effort enum, or a token budget. A model that does not reason at all offers exactly one level, `off`; `xhigh` and `max` are offered only where a model explicitly maps them, since they exist on selected families only.
+
+**Unsupported levels clamp, they do not fail.** Asking for a level a model lacks searches upward through the scale first, then downward, then falls back to the model's first available level. This is a deliberate exception to fail-loudly (section 2.2), and the reason is that a thinking level is a dial, not a capability: a request for `max` on a model that tops out at `high` has an obviously correct answer, where a request for tool calling on a model without it does not. Bolt adds one thing to Pi's behavior: the clamp is visible — surfaced in the client and recorded as a config event (section 2.4) — so nobody believes they are running at a level they are not.
+
+**Token-budget providers get budgets, not enums.** Where a provider takes a thinking-token budget instead of an effort word, the levels map to defaults of 1024, 2048, 8192, and 16384 tokens for `minimal` through `high`, with `xhigh` and `max` collapsing to `high`. Budgets are overridable per request and per model.
+
+**The answer always has room.** On providers where thinking and the answer share one response ceiling, a large budget can consume the entire response and emit nothing. So the budget is clamped to leave at least 1024 tokens for the answer, and the ceiling itself is clamped to the context window with a safety margin. This rule is not optional and not configurable away — a request that produces reasoning and no answer is a bug, not a setting.
+
+**Rendering is the adapter's job.** `reasoning_effort`, `reasoning: {effort}`, `thinking: {type}`, `enable_thinking`, chat-template arguments, a top-level token-budget field — the shape differs per endpoint and sometimes per deployment of the same model. Provider adapters own this, auto-detecting from the endpoint with explicit compatibility overrides available, exactly as tool dialects (section 7.4) own schema shape. The kernel, the log, and the user see one level; the wire sees whatever that endpoint wants.
+
+**It is session state, per model.** The level applies to future turns and can change mid-session. A per-model level overrides the global default, switching models re-clamps to the new model's capabilities, and choosing a model never silently rewrites the user's global default. Every role and every child carries its own level (sections 2.7, 6.3, 6.7), and it is part of a spawn request like model and tools.
+
+Two Bolt-specific consequences follow. Thinking level is the largest cost multiplier after model choice, so it is reported alongside model in cost breakdowns and counts against session and tree budgets (section 15.3) like any other spend. And because level is per role, the zero-config defaults of section 2.8 cover it: mechanical roles run at the low end, the main loop at the default, and nobody has to configure a level to use a feature.
 
 ## 8. Learning loop
 
@@ -849,12 +876,14 @@ This action will:
 
 Support the same broad classes as Claude Code:
 
-1. Per-command sandbox
-2. Whole-runtime sandbox
-3. Dev container
-4. Custom OCI container
-5. Virtual machine provider
-6. Managed or self-hosted cloud worker
+1. Per-command sandbox — OS primitives, no container
+2. Whole-runtime sandbox — the harness process itself confined
+3. Dev container — the repository's own `devcontainer.json` (section 11.5)
+4. Custom OCI container — a user-chosen image (section 11)
+5. Virtual machine provider — VM-backed OCI runtimes or a full VM (section 11.2)
+6. Managed or self-hosted cloud worker — the same OCI substrate, remote (section 12)
+
+Levels 3 through 6 are all OCI underneath; they differ in who supplies the image and where it runs, not in mechanism.
 
 The zero-config default (section 2.8): a fresh session gets the per-command OS sandbox where the platform provides one — Bubblewrap or Landlock on Linux, Seatbelt on macOS — with workspace-scoped writes and the default network allowlist, which in turn selects the `direct` permission posture (section 9.2). Where no provider is available, the session runs unsandboxed under `auto`, announced loudly at session start — never silently.
 
@@ -879,10 +908,12 @@ If confinement is required and no provider is available, execution must fail. It
 
 ### 10.3 Platform providers
 
-- Linux: Bubblewrap and Landlock
-- macOS: Seatbelt
-- Windows: restricted token and ACL, with WSL2 as an additional option
-- Portable: OCI
+- **Linux**: Bubblewrap for namespace-based confinement (mount, PID, IPC, UTS, and user namespaces) plus Landlock for path-scoped filesystem rules enforced by the kernel on the process and its descendants. Landlock ABI levels differ by kernel — network rules arrived later than filesystem rules — so the provider reports the ABI it got and which requested rules it could enforce, rather than assuming. Seccomp filters syscalls alongside both.
+- **macOS**: Seatbelt (`sandbox_init` profiles), the same mechanism the platform uses for its own app confinement.
+- **Windows**: restricted tokens, job objects, and ACLs, with WSL2 as the stronger option and the only path to the Linux providers above.
+- **Portable**: OCI (section 11), which is how every platform gets an equivalent confinement when the native primitives are missing or insufficient.
+
+A provider reports its capabilities rather than claiming a level: which controls from section 10.2 it can actually enforce, and at what strength. A session whose policy requires a control the provider cannot enforce fails at start (section 2.2) instead of running with a quietly weaker profile.
 
 ### 10.4 Extension isolation
 
@@ -910,9 +941,39 @@ Under Bolt, provider calls are ordinary egress: they obey the session's network 
 
 ## 11. OCI runtime
 
-OCI is the common execution substrate for local containers and cloud workers.
+OCI is the common execution substrate for everything above per-command sandboxing: dev containers, custom images, OCI subagent children (section 6.3), and cloud workers (section 12) are one implementation with different placement. Bolt is an OCI *client*, not a container platform — it writes no image format, no bundle format, and no environment format of its own (section 5.2).
 
-The provider contract should cover:
+### 11.1 Which specifications
+
+"OCI support" is three specifications, and Bolt targets all three explicitly:
+
+- **Image Specification** — manifests, config, layers, and the image index for multi-platform images. Bolt reads indexes and resolves them to a single platform-specific manifest digest.
+- **Runtime Specification** — the filesystem bundle and `config.json` that describe how a container is configured and run, including the Linux section (namespaces, cgroups, seccomp, capabilities, masked and read-only paths). This is where Bolt's sandbox policy (section 10.2) is actually expressed.
+- **Distribution Specification** — the registry API used to pull by digest, and the referrers API used to discover signatures, SBOMs, and attestations attached to an image (section 11.4).
+
+Anything runtime-spec compliant can serve as the low-level runtime. Bolt does not ship a runtime.
+
+### 11.2 Runtimes and clients
+
+Isolation strength is a property of the runtime, and Bolt reports it rather than flattening everything into the word "container":
+
+| Runtime | Isolation | Notes |
+| --- | --- | --- |
+| runc | namespaces + cgroups | The baseline. Shared host kernel. |
+| crun | namespaces + cgroups | C implementation, faster startup, native cgroups v2. Preferred where available. |
+| youki | namespaces + cgroups | Rust implementation, same contract. |
+| gVisor (`runsc`) | user-space kernel | Syscalls intercepted before the host kernel. Meaningfully stronger; some syscall and performance incompatibility. |
+| Kata Containers | hardware VM | Each container in a lightweight VM (QEMU, Cloud Hypervisor, or Firecracker). Strongest local isolation, highest startup cost. |
+
+Above the runtime sits an engine, and Bolt supports the ones people actually have: Podman (daemonless, rootless-first, the preferred default), Docker Engine, and containerd with nerdctl. On macOS these run inside a Linux VM — Lima, Colima, Docker Desktop, or Apple's native `container` tooling — and Bolt detects which is present rather than requiring one. On Windows the supported path is WSL2 with a Linux engine inside it; native Windows containers are not a target, and the plan says so instead of implying portability it will not deliver.
+
+**Rootless is the local default.** Containers run in a user namespace with the container's root mapped to an unprivileged host UID via subordinate UID/GID ranges, an unprivileged overlay filesystem, user-space networking, and cgroups v2 delegated through the user's systemd slice. The reason is blunt: a coding agent that requires a root-equivalent daemon to sandbox itself has moved the risk rather than reduced it. Rootful execution is available where a workload genuinely needs it, and running rootful is announced at session start, never quiet.
+
+Selection is capability-detected and reported by `/doctor` (section 17.1): which engines and runtimes exist, whether rootless works, cgroups v2 delegation, user-namespace availability, and which requested controls each combination can enforce. When a session's policy requires isolation stronger than anything installed can provide, it fails to start (section 2.2) — Bolt never downgrades a VM-backed request to a shared-kernel container silently.
+
+### 11.3 The container contract
+
+The provider contract, unchanged in shape:
 
 ```text
 create
@@ -925,19 +986,57 @@ terminate
 verifyTerminated
 ```
 
-Required features:
+`create` produces a runtime-spec `config.json` from the session's sandbox policy, with these defaults:
 
-- Image selection and digest pinning
-- CPU, memory, disk, time, and cost limits
-- Read-only base filesystem
-- Explicit workspace mounts
-- Egress policy
-- Secret injection
-- Durable external session log
-- Artifact upload
-- Graceful shutdown followed by forced termination
-- Idempotent cleanup
-- Resource lease and expiry
+- **Read-only root filesystem.** Writes go to explicit mounts: the workspace, a tmpfs for `/tmp`, and nothing else.
+- **All capabilities dropped**, with an empty ambient and bounding set. No capability is added back without an explicit policy grant.
+- **`noNewPrivileges` set**, so setuid binaries inside the image cannot escalate.
+- **A seccomp profile** denying by default and allowing a known syscall set; the profile is versioned and recorded with the session, since "which syscalls were allowed" is part of what a replay means.
+- **Masked and read-only paths** for the sensitive parts of `/proc` and `/sys`, per the runtime spec's own recommendations.
+- **AppArmor or SELinux labels** applied where the host provides them, including the volume relabeling that SELinux hosts require for bind mounts.
+- **User namespace mapping** so container UID 0 is an unprivileged host UID.
+- **No device passthrough.** No GPU, no `/dev/kvm`, no host devices unless explicitly granted.
+- **cgroups v2 limits** on CPU, memory (including swap), PIDs, and I/O — the enforcement behind section 12's resource ceilings. A container that exceeds its memory limit is reported as OOM-killed, not as a mysterious crash.
+
+`snapshot` captures the workspace and the event log, not process state. Process-level checkpointing is explicitly out of scope initially: a resumed session replays from its log (section 15.6), which is a guarantee Bolt already makes, rather than from a frozen process image, which it would then have to keep making across kernel and runtime versions.
+
+`stop` is a graceful signal with a bounded grace period, followed by forced termination; `terminate` is idempotent, so calling it on an already-dead container is a success and not an error — cleanup that cannot be retried safely is cleanup that leaks. `verifyTerminated` means what it says: the resource is queried after termination and its absence confirmed, because section 12.3's leak prevention is only as good as this call. Time and cost ceilings are enforced as resource leases (section 12.3) on top of the cgroup limits above.
+
+### 11.4 Images and supply chain
+
+An agent that runs model-chosen code inside a container it pulled from the internet has two trust problems, not one. The image gets the same provenance treatment as an adopted extension (section 4.4):
+
+- **Digests, always.** Tags resolve to a digest once, at configuration time, and the digest is what is stored and pulled thereafter. A moving tag is not a reproducible environment.
+- **Platform pinning.** Multi-platform images resolve to the platform-specific manifest digest, recorded per architecture. Running a foreign-architecture image through emulation is allowed but announced, because it is slow and occasionally behaves differently — a "works on my machine" that spans architectures is worth surfacing.
+- **Signature verification.** Sigstore/cosign verification, keyless or key-based, with policy configurable per registry. Where policy requires verification and the signature is missing or invalid, the container does not start. Attestations and SBOMs are discovered through the referrers API and recorded alongside the digest, so what ran is auditable after the fact.
+- **Registry credentials** come from the host's existing credential helpers and live in the secrets layer (section 12.4). They never appear in prompts, logs, session events, or generated extensions.
+- **Offline behavior is explicit.** With no network, Bolt uses the local layer cache and says so; it never silently pulls in a session that believed it was offline, and never silently fails a pull as "image not found".
+- **Bolt's own base images** are published with signatures, SBOMs, and provenance attestations. Asking users to verify what they run while shipping unverifiable images would be incoherent.
+
+### 11.5 Dev containers
+
+Repositories already describe their environment, and the format is `devcontainer.json`. Bolt implements the specification rather than inventing a Bolt-specific container config — the same argument as MCP and AGENTS.md (section 5.2), applied one layer down. A repo with a dev container gets a correct environment with zero configuration (section 2.8): image or Dockerfile build, compose files, features, `remoteUser`, `containerEnv`, mounts, and forwarded ports.
+
+Two honesty rules, because dev containers are code:
+
+- **Lifecycle commands are untrusted input.** `postCreateCommand`, `postStartCommand`, and friends are arbitrary commands supplied by the repository, which may be a repository the user just cloned. They run inside the container under the session's normal permission policy, with the first execution requiring an explicit grant that names the commands. A dev container is a convenience, not an exemption.
+- **Features are OCI artifacts**, pulled from registries, and they get section 11.4's verification policy like any other image content.
+
+Where the reference `devcontainer` CLI does the job, Bolt drives it rather than reimplementing the spec; the parts Bolt owns are policy, mounts, and lifecycle, not the format.
+
+### 11.6 Networking and egress
+
+Each container gets its own network namespace and reaches the outside world only through a Bolt-controlled egress proxy, with firewall rules in the namespace pinning all traffic to that proxy so a process cannot open a raw socket around it. Domain allowlists and denylists (section 10.2) are enforced at the proxy — by request host for plaintext and by SNI for TLS — and DNS resolves through it too, since an unfiltered resolver is an exfiltration channel with extra steps. Rootless setups use a user-space network stack for the namespace bridge, which is slower than a bridge device and worth it.
+
+No ports are published by default. Publishing one is explicit, bound to loopback unless the user says otherwise, and surfaced in the client so a forwarded port is never a surprise. All of this is the same policy object as the per-command sandbox, so a rule written once holds whether a command runs on the host or in a container.
+
+### 11.7 Filesystem, state, and secrets
+
+The workspace is a bind mount at a fixed path; the host home directory is never mounted. Secrets are injected at start as tmpfs-backed files or environment variables, never baked into an image layer, never captured in a snapshot, and never written to the event log (section 2.4). The session's JSONL log is durably appended and uploaded from the container (section 12), because a worker that dies must not take the record of what it did with it. Artifacts upload through the blob channel (section 15.5), which keeps megabytes out of the event stream.
+
+### 11.8 When it cannot be done
+
+Every failure in this section is loud. No engine installed, no runtime satisfying the requested isolation, rootless unavailable where policy requires it, cgroups v2 delegation missing, an unverifiable image under a verifying policy, a workspace that cannot be mounted — each of these stops the session with a specific diagnosis and, where one exists, the command that would fix it. `/doctor` reports the same information before a session needs it. The failure mode Bolt refuses is the one where a session that asked for a container quietly runs on the host.
 
 ## 12. Cloud runtime
 
@@ -1032,13 +1131,13 @@ Pools bind per role, not just per session. The main loop, side conversations, co
 
 Provider prompt caches are scoped to the entitlement, so moving a live session between members discards the cached prefix and re-bills the whole context. This makes cache affinity a routing input, not an afterthought, and it is why the default strategy is `sticky-session`: a session keeps one member until that member cannot serve it. `round-robin`, `weighted`, `least-utilized`, `priority`, and `pinned` are available, but per-request rotation is opt-in and warns about cache loss at configuration time — it is the one setting in this section that can quietly make a session cost more.
 
-A mid-session member switch is an explicit event with its reason, and the re-priming cost is attributed to the switch rather than absorbed into the turn that triggered it. Which member served each request is recorded in the log for the same reason model and effort are (section 2.4): it determines availability, limits, and price.
+A mid-session member switch is an explicit event with its reason, and the re-priming cost is attributed to the switch rather than absorbed into the turn that triggered it. Which member served each request is recorded in the log for the same reason model and thinking level are (section 2.4): it determines availability, limits, and price.
 
 ### 13.3 Limits and exhaustion
 
 Each member carries observed state — `available`, `throttled` with a known retry-after, `exhausted` with a known reset time, `degraded` on an elevated error rate, and `failed` on revoked or invalid auth. Rate-limit responses update that state instead of only failing a request, using provider metadata where it exists and a conservative local estimate where it does not. Spillover to another member happens only for requests that are safe to retry, and a member that fails authentication is disabled and surfaced for reauthentication rather than retried in a loop.
 
-When every member is exhausted, Bolt reports the pool state and the earliest reset and stops (section 2.2). It does not silently fall back to a weaker model or a lower effort level to keep going — a pool that quietly changes what is answering the user is worse than a pool that says it is out. Downgrade on exhaustion may exist, but only as an explicit setting with an announced switch. Pool exhaustion pauses at the next safe boundary and resumes, in the same shape as a crossed budget (section 15.3).
+When every member is exhausted, Bolt reports the pool state and the earliest reset and stops (section 2.2). It does not silently fall back to a weaker model or a lower thinking level to keep going — a pool that quietly changes what is answering the user is worse than a pool that says it is out. Downgrade on exhaustion may exist, but only as an explicit setting with an announced switch. Pool exhaustion pauses at the next safe boundary and resumes, in the same shape as a crossed budget (section 15.3).
 
 ### 13.4 Boundaries
 
@@ -1096,7 +1195,7 @@ Capabilities:
 - Permission requests from any authorized client
 - Tree-structured sessions with first-class branches
 - Checkpoint and rewind
-- Model and effort switching
+- Model and thinking-level switching
 - Context and cost visibility
 - Sandbox status
 - Background operation status
@@ -1372,7 +1471,7 @@ No. The thesis is that Bolt adapts to you instead of you adapting to it (section
 That is the core promise. Resources on the AAIF open standards — MCP, AGENTS.md, Agent Skills, Agent Plugins — install directly (section 5.2). Pi, OpenCode, DSH, and Claude Code resources go through the adoption compiler (section 4), which converts without touching the original and tells you exactly what did and did not carry over.
 
 **Why is there no default subagent tool? Can it still do subagents?**
-Yes — arguably more elegantly than harnesses that bake them in. In Bolt a subagent is simply a session with a parent (section 6): same lifecycle, same log, same visibility as any session, with its own model, effort, tools, and placement, and results returning as explicit attributed events. What Bolt refuses is an ambient spawn tool in an ordinary session, because model-decided delegation there means unpredictable spend and behavior. Instead, spawning flows through four authorities — you (`/subagents`, `/btw`), scripts (workflows), goals (which hold spawn authority by default, bounded by their budget), and the system. You get everything built-in subagents offer, plus things they don't: every child inspectable and replayable, budgets that roll up the tree, per-child model choice, agent definitions swappable as plain files (section 6.7), and even other harnesses — Claude Code, Codex — driveable as children.
+Yes — arguably more elegantly than harnesses that bake them in. In Bolt a subagent is simply a session with a parent (section 6): same lifecycle, same log, same visibility as any session, with its own model, thinking level, tools, and placement, and results returning as explicit attributed events. What Bolt refuses is an ambient spawn tool in an ordinary session, because model-decided delegation there means unpredictable spend and behavior. Instead, spawning flows through four authorities — you (`/subagents`, `/btw`), scripts (workflows), goals (which hold spawn authority by default, bounded by their budget), and the system. You get everything built-in subagents offer, plus things they don't: every child inspectable and replayable, budgets that roll up the tree, per-child model choice, agent definitions swappable as plain files (section 6.7), and even other harnesses — Claude Code, Codex — driveable as children.
 
 **How is Bolt built?**
 With Bolt, as early as possible. The bootstrap skeleton — built with an existing harness — is the minimal profile (section 7.3) plus the one thing that cannot be retrofitted: the JSONL event format and tree (section 15.6), done right before anything else, since every guarantee hangs on it. The day Bolt can edit its own source and run its own tests, development switches to Bolt building Bolt. Dogfooding is structural, not sentimental: the learning loop (section 8) and insights engine (section 8.6) can only be validated by sustained real sessions — the build history is their first corpus — and first-party features built on the public API are the proof the API is sufficient (section 2.9). Two honesty rules: fall back to another harness without ceremony when Bolt is the thing being debugged, and recruit outside users early for the zero-config and adoption claims, which the author — who knows every setting — is the worst possible test of. What to build next is sequenced by felt absence during real use, which is why this document carries no delivery phases.
