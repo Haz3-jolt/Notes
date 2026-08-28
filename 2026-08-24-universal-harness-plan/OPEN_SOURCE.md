@@ -22,7 +22,7 @@ So openness is not a value statement appended to the project. It is the mechanis
 Why Apache-2.0 over MIT:
 
 - The explicit patent grant. Bolt sits in a space where large vendors are filing aggressively; contributors and adopters get a defensive floor MIT does not provide.
-- It is the license serious infrastructure converges on when it expects corporate contributors, and Bolt's compatibility catalog (section 8) explicitly wants plugin vendors in its CI.
+- It is the license serious infrastructure converges on when it expects corporate contributors, and Bolt's compatibility catalog (section 9) explicitly wants plugin vendors in its CI.
 - Apache-2.0's explicit contribution terms (section 5 of the license) do the legal work a CLA would otherwise exist for, which is what lets us not have one (section 4).
 
 Why no open-core split: a project whose pitch is "keep your stuff, no lock-in" cannot have a paywall in its own repository without the pitch curdling. Every feature in HARNESS_PLAN.md lands under Apache-2.0.
@@ -122,7 +122,35 @@ A harness that executes model-chosen commands is itself supply-chain-critical so
 - **Secure defaults are a Gold criterion and already Bolt's design**: loopback-only port publishing, deny-by-default egress, credential agility (file-backed secrets, no algorithm or key baked in without a transition path). The plan and the badge requirements agree; the assurance case documents where.
 - Hardening claims invite verification: seccomp profiles, egress rules, and extension isolation are in-tree, and external audit findings — formal or drive-by — get severity-one triage.
 
-## 8. The compatibility catalog as a community program
+## 8. Repository documents: port the Observal set
+
+Observal's contributor-facing documents were iterated through 1,700 pull requests and an OpenSSF Gold audit; they encode judgment Bolt should inherit, not rediscover. The policy is **port, don't rewrite**: each document starts as a near-identical copy, adapted only where Bolt genuinely differs — DCO instead of CLA, TypeScript instead of Python, a harness instead of a registry. Divergence beyond those is a deliberate decision recorded in the porting commit, not drift.
+
+The set, file by file:
+
+| Bolt file | Ported from | What changes in the port |
+| --- | --- | --- |
+| `AI_POLICY.md` | Observal `AI_POLICY.md` | Near-identical: the unattended-agent prohibition, "explain every line", full-diff self-review, compile-and-test, AI labeling with tool version. The CLA-based legal argument is re-grounded in the DCO sign-off (section 4). |
+| `.github/pull_request_template.md` | Observal PR template | Same sections in the same order: Purpose, Fixes, Approach, How Has This Been Tested, Learning, Checklist, the commented-out Licenses table for new external resources, AI Assistance disclosure, optional Discord username. "UI changes" checklist item covers the web and mobile clients. |
+| `CONTRIBUTING.md` | Observal `CONTRIBUTING.md` | Same skeleton: prerequisites, fork-and-clone, running locally, claiming issues, branch naming, code style, SPDX headers, testing, commit messages, changelog, submitting, reporting. The CLA section becomes the DCO section; tooling swaps to the TypeScript stack. |
+| `AGENTS.md` | Observal `AGENTS.md` | Same role — the development guide written for agent-assisted work: what the project is, architecture at a glance, preferred coding patterns, commands, test invocation, and the AI contribution policy pointer. For Bolt this file is also dogfood: it is exactly the instruction format the harness itself consumes (HARNESS_PLAN.md section 7.2), so the dev guide doubles as a living fixture. |
+| `SETUP.md` | Observal `SETUP.md` | Same numbered-steps shape: clone and configure, start, verify health, install the CLI, first session, run the tests, common operations, port conflicts. Content is Bolt's, structure is proven. |
+| `.github/CODEOWNERS` | Observal `CODEOWNERS` | Same two-tier pattern: default owners on `*`, with `/.github/`, release automation, and `SECURITY.md` requiring an admin owner. Populated from section 3's area-maintainer map so ownership in the file matches ownership in the governance doc. |
+| `.github/ISSUE_TEMPLATE/` | Observal's four templates + config | Bug report as a form, feature request, `config.yml` pointing questions at Discussions with blank issues enabled. Observal's `harness_support` template maps to Bolt's most important one: an **adoption-target request** — "convert my plugin/ecosystem", with fields for source runtime, package, and what broke. That template feeds the catalog (section 9) directly. |
+| `SECURITY.md` | Observal `SECURITY.md` | Near-identical: same channels, same 48h/7d/30d windows, same "report it anyway" posture, supported-versions table, assurance-case and release-verification links (section 7.5). |
+| `docs/security/assurance-case.md` | Observal assurance case | Same section skeleton (claim → assets → threat actors → trust boundaries → requirements and arguments → mitigations → residual risks → maintenance); Bolt's content per section 7.5. |
+| `docs/security/release-verification.md` | Observal release verification | Same four steps: download, check digests, verify artifact provenance, verify the tag. |
+| `CODE_OF_CONDUCT.md` | Contributor Covenant | Adopted as-is, both projects, no editing (section 10). |
+| `ROADMAP.md`, `CHANGELOG.md` | Observal's | Same conventions: a public roadmap that matches reality (section 6), a changelog written for users. |
+| `.pre-commit-config.yaml`, `.gitleaks.toml`, `REUSE.toml`, `.github/workflows/` | Observal's configs | The enforcement layer behind sections 2 and 7, ported with stack-appropriate substitutions (ruff/hadolint equivalents for the TypeScript toolchain), SHA-pinned from the first commit. |
+
+Three rules govern the porting:
+
+- **Attribution is kept.** Observal's documents carry SPDX headers naming their authors; ported files preserve the lineage the same way Observal credits AnkiDroid in its AI policy. Both projects are Apache-2.0, so this is clean.
+- **The documents stay in sync deliberately, not automatically.** When Observal improves a policy, Bolt evaluates the change and ports it — or doesn't — as a reviewed commit. No blind mirroring: the two projects will diverge where their natures differ, and each divergence should be able to say why.
+- **Templates are enforced where they claim things.** A checklist item nobody checks is theater. The PR template's AI-assistance disclosure, SPDX headers, and sign-off are validated by CI and pre-commit (sections 4, 7.3), so the documents describe the machine, not a hope.
+
+## 9. The compatibility catalog as a community program
 
 The catalog (HARNESS_PLAN.md section 17.2) is Bolt's most communal artifact: a published, continuously re-verified record of which real-world plugins, skills, and configurations adopt cleanly. As a community program:
 
@@ -131,17 +159,17 @@ The catalog (HARNESS_PLAN.md section 17.2) is Bolt's most communal artifact: a p
 - Plugin authors can claim their entries: verify the conversion, mark caveats, wire the conformance suite into their CI. An author-verified entry outranks an automated one.
 - The catalog never editorializes. It reports conversion status, not quality judgments about other people's work.
 
-## 9. Community conduct
+## 10. Community conduct
 
 - **Contributor Covenant**, adopted as-is rather than hand-rolled, enforced by the maintainers with the BDFL as escalation point. Boring and standard is the point.
 - The tone standard for maintainers is the tone of the plan documents: direct, technical, honest about tradeoffs, never contemptuous. How maintainers talk in reviews is the culture; no document overrides example.
 - English is the project language for durable artifacts; nobody is penalized for imperfect English, and review feedback addresses the patch, not the prose.
 
-## 10. Trademark and name
+## 11. Trademark and name
 
 Apache-2.0 licenses the code, not the name. "Bolt" and its mark are held by the project with a short, permissive trademark policy published in-repo: unmodified redistribution and truthful compatibility claims ("works with Bolt", "adopted for Bolt") are always fine; forks are welcome and encouraged under any name that does not claim to be the canonical Bolt. This is standard hygiene, stated up front so it never surprises anyone later.
 
-## 11. What this document refuses
+## 12. What this document refuses
 
 Mirroring the product plan's non-goals (HARNESS_PLAN.md section 19):
 
@@ -152,7 +180,7 @@ Mirroring the product plan's non-goals (HARNESS_PLAN.md section 19):
 - No adversarial marketing against the ecosystems Bolt adopts from.
 - No purity rules about AI-assisted contributions that the maintainers themselves could not pass.
 
-## 12. Success criteria
+## 13. Success criteria
 
 The open-source posture is working when:
 
