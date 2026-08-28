@@ -74,7 +74,7 @@ Bolt's core feature is converting resources from Pi, OpenCode, DSH, and Claude C
 
 ## 6. Project structure
 
-- **One monorepo**, mirroring the package layout that already works for Pi: kernel, protocol, clients, compiler, providers as packages with clear boundaries. The mobile apps live in the same repo — a protocol change and the client updates it forces belong in one review.
+- **One monorepo**, mirroring the package layout that already works for Pi: kernel, protocol, clients, compiler, providers as packages with clear boundaries. The mobile apps live in the same repo — a protocol change and the client updates it forces belong in one review. The full layout, the argument for including the apps, and the CI and release mechanics are specified in [CODE_STRUCTURE.md](CODE_STRUCTURE.md).
 - **The plan documents live in the repo**, not in a wiki. HARNESS_PLAN.md and this document are versioned artifacts; changing the plan is a pull request with review, like changing code.
 - **Issues are the coordination surface.** No private roadmap that contradicts the public one. Maintainer discussion happens in issues, RFCs, and a public chat channel; decisions made in private channels get written back into the public record or they did not happen.
 - **Releases** follow semver with a changelog written for users, not generated from commit subjects. Pre-1.0, minor versions may break; the changelog says so loudly (fail-loudly applies to release notes too). The protocol and event format carry their own versioning per HARNESS_PLAN.md open decision 5, independent of the release train. Release mechanics — signing, attestation, verification, idempotent publishing — are specified in section 7.2.
