@@ -428,14 +428,16 @@ The full set of things a user or package can add to Bolt:
 
 ### 5.2 Open standards first
 
-Bolt implements the AAIF-stewarded standards natively rather than inventing formats — this is what the "no another skill format" non-goal (section 19) looks like in the affirmative:
+Bolt implements the open agent standards natively rather than inventing formats — this is what the "no another skill format" non-goal (section 19) looks like in the affirmative:
 
-- **MCP** for external tool connectivity
-- **AGENTS.md** for instructions and context
-- **Agent Skills** for skill documents
-- **Agent Plugins 1.0** as a first-class install format: a standard plugin — skills plus MCP servers in one directory — installs directly at compatibility level `native`, no conversion pass needed
+- **MCP** for external tool connectivity (AAIF-stewarded)
+- **AGENTS.md** for instructions and context (AAIF-stewarded)
+- **Agent Skills** for skill documents (Anthropic's open standard, the de-facto industry format)
+- **Agent Plugins 1.0** as a first-class install format: a standard plugin — skills plus MCP servers in one directory — installs directly at compatibility level `native`, no conversion pass needed (open and vendor-neutral, though as of August 2026 not an AAIF project)
 
-The same posture extends past the AAIF set wherever a real standard already exists: OCI image, runtime, and distribution specs for containers, and `devcontainer.json` for repository environments (section 11). Bolt has no container config format of its own and will not grow one.
+The criterion is that a standard is open and genuinely multi-vendor, not which foundation's letterhead it carries — stewardship labels above are recorded because they change over time, and Bolt tracks the standards wherever they land. Should AAIF or another body adopt Agent Skills or Agent Plugins, nothing in Bolt moves.
+
+The same posture extends past the agent standards wherever a real standard already exists: OCI image, runtime, and distribution specs for containers, and `devcontainer.json` for repository environments (section 11). Bolt has no container config format of its own and will not grow one.
 
 The adoption compiler (section 4) exists for the proprietary and divergent formats; anything already on the open standards walks in the front door. As ecosystems converge on Agent Plugins, Bolt's adoption burden shrinks by itself — betting on the standard is betting on our own future workload going down.
 
@@ -1468,7 +1470,7 @@ Bolt reuses Pi where Pi is right — the agent loop, compaction, the provider AP
 No. The thesis is that Bolt adapts to you instead of you adapting to it (section 1): it adopts your existing ecosystems, configures itself, learns from how you work, extends itself when it falls short, and meets you on any client with any model — plus tree sessions, no default subagents, and observability down to every logged decision.
 
 **Will my existing setup work?**
-That is the core promise. Resources on the AAIF open standards — MCP, AGENTS.md, Agent Skills, Agent Plugins — install directly (section 5.2). Pi, OpenCode, DSH, and Claude Code resources go through the adoption compiler (section 4), which converts without touching the original and tells you exactly what did and did not carry over.
+That is the core promise. Resources on the open agent standards — MCP, AGENTS.md, Agent Skills, Agent Plugins — install directly (section 5.2). Pi, OpenCode, DSH, and Claude Code resources go through the adoption compiler (section 4), which converts without touching the original and tells you exactly what did and did not carry over.
 
 **Why is there no default subagent tool? Can it still do subagents?**
 Yes — arguably more elegantly than harnesses that bake them in. In Bolt a subagent is simply a session with a parent (section 6): same lifecycle, same log, same visibility as any session, with its own model, thinking level, tools, and placement, and results returning as explicit attributed events. What Bolt refuses is an ambient spawn tool in an ordinary session, because model-decided delegation there means unpredictable spend and behavior. Instead, spawning flows through four authorities — you (`/subagents`, `/btw`), scripts (workflows), goals (which hold spawn authority by default, bounded by their budget), and the system. You get everything built-in subagents offer, plus things they don't: every child inspectable and replayable, budgets that roll up the tree, per-child model choice, agent definitions swappable as plain files (section 6.7), and even other harnesses — Claude Code, Codex — driveable as children.
