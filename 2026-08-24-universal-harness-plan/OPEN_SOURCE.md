@@ -31,6 +31,7 @@ Third-party reuse obligations:
 
 - Pi is MIT-licensed and Bolt reuses its agent loop, compaction, and session format by design (HARNESS_PLAN.md sections 14, 15.6). MIT folds into an Apache-2.0 project cleanly; original copyright notices and license text are preserved in the source tree and in a NOTICE file, with attribution beyond the legal minimum — named credit in the README. The same applies to `pi-web-access` and any other adopted implementation.
 - Every vendored or adapted file records its origin in the file header: source project, commit, and what was changed. This is the same provenance discipline the adoption compiler applies to user packages (HARNESS_PLAN.md section 4.4), applied to ourselves. A project built on an adoption compiler does not get to be vague about what it adopted.
+- **REUSE compliance from the first commit**: SPDX copyright and license identifiers on every file, a `LICENSES/` directory, and `REUSE.toml` for the files that cannot carry headers — machine-checkable licensing, enforced in pre-commit, matching the practice already proven on Observal. When every file states its license, the NOTICE obligations above stop being a diligence exercise and become a grep.
 
 ## 3. Governance: BDFL and maintainers
 
@@ -48,12 +49,13 @@ Bolt is an opinionated design — one voice, deliberate disagreements with DSH a
 
 ## 4. Contributions
 
-**DCO, not CLA.** Contributors sign off commits (`Signed-off-by`) certifying they have the right to submit the work under Apache-2.0. No contributor license agreement, no copyright assignment, ever. CLAs are friction and an asymmetry — the project would hold rights contributors do not — and the projects Bolt most respects do without them. Apache-2.0's own contribution clause plus DCO covers what a CLA would.
+**DCO, not CLA.** Contributors sign off commits (`Signed-off-by`) certifying they have the right to submit the work under Apache-2.0. No contributor license agreement, no copyright assignment, ever. CLAs are friction and an asymmetry — the project would hold rights contributors do not — and the projects Bolt most respects do without them. Apache-2.0's own contribution clause plus DCO covers what a CLA would. This is a deliberate divergence from Observal, which runs a CLA: OpenSSF Gold accepts either, the legal function a CLA serves in the AI policy — an accountable human asserting rights — is served equally by the sign-off, and for a project whose thesis is anti-lock-in, not holding rights contributors don't hold is the consistent choice.
 
-**AI-assisted contributions are normal and stated plainly.** Bolt is built with agents (HARNESS_PLAN.md, "How is Bolt built?"), and it would be absurd to hold contributors to a purity standard the maintainers do not meet. The policy is about responsibility, not tooling:
+**AI-assisted contributions are normal and stated plainly**, governed by an `AI_POLICY.md` carried over from the one already battle-tested on Observal (itself adapted from AnkiDroid's, with attribution). Bolt is built with agents (HARNESS_PLAN.md, "How is Bolt built?"), and it would be absurd to hold contributors to a purity standard the maintainers do not meet. The policy is about accountability, not tooling:
 
+- **Unattended agents cannot contribute.** The line is meaningful human authorship: an accountable person who directed the work, reviewed the complete change, can explain it, and explicitly authorized publication. This is a legal position as much as a quality one — the DCO sign-off asserts rights to the contribution, and an unattended submission has no human who can truthfully make that assertion or keep the Apache-2.0 license chain sound.
 - The contributor owns what they submit. "The agent wrote it" is not a defense for a broken patch, an unverified claim, or license-laundered code — the sign-off means a human stands behind the change.
-- Agent-generated code meets the same bar as any code: it is reviewed by its submitter before it is reviewed by us.
+- The pull request template asks whether AI tooling co-authored the change and whether the output was reviewed and tested — disclosure as routine hygiene, not confession.
 - What is not welcome is unattended volume: auto-generated pull requests, drive-by agent output with no human who can answer questions about it, and issue spam. These are closed without ceremony.
 
 **Review discipline scales with what the change touches.** Kernel and security-boundary changes get two reviewers, one of whom is the area maintainer or BDFL, plus the behavior-test suite. Everything else needs one maintainer. Tests accompany behavior changes; the Pi-fixture compatibility suites (HARNESS_PLAN.md section 14) are the regression floor and never go red on main.
@@ -75,14 +77,50 @@ Bolt's core feature is converting resources from Pi, OpenCode, DSH, and Claude C
 - **One monorepo**, mirroring the package layout that already works for Pi: kernel, protocol, clients, compiler, providers as packages with clear boundaries. The mobile apps live in the same repo — a protocol change and the client updates it forces belong in one review.
 - **The plan documents live in the repo**, not in a wiki. HARNESS_PLAN.md and this document are versioned artifacts; changing the plan is a pull request with review, like changing code.
 - **Issues are the coordination surface.** No private roadmap that contradicts the public one. Maintainer discussion happens in issues, RFCs, and a public chat channel; decisions made in private channels get written back into the public record or they did not happen.
-- **Releases** follow semver with a changelog written for users, not generated from commit subjects. Pre-1.0, minor versions may break; the changelog says so loudly (fail-loudly applies to release notes too). The protocol and event format carry their own versioning per HARNESS_PLAN.md open decision 5, independent of the release train.
+- **Releases** follow semver with a changelog written for users, not generated from commit subjects. Pre-1.0, minor versions may break; the changelog says so loudly (fail-loudly applies to release notes too). The protocol and event format carry their own versioning per HARNESS_PLAN.md open decision 5, independent of the release train. Release mechanics — signing, attestation, verification, idempotent publishing — are specified in section 7.2.
+- **CI is part of the product's quality bar, not scaffolding.** The merge queue and its gates (section 7.4) are how main stays green; coverage is measured and visible; the test suite runs parallel by default because a slow suite is a suite people learn to skip. Automated review tooling may assist, but a bot's approval satisfies no review requirement — the review counts in section 4 are counts of humans.
 
-## 7. Security
+## 7. Security engineering: OpenSSF Gold from day one
 
-- A `SECURITY.md` with a private disclosure channel and a committed response window. Sandbox escapes, permission bypasses, and credential leaks are treated as severity-one regardless of how theoretical the exploit looks.
-- Security fixes may be developed in private and land with disclosure after release — the one sanctioned exception to develop-in-public.
-- The threat model is documented: what the sandbox promises against which attacker, what it explicitly does not (HARNESS_PLAN.md sections 2.6, 10). Security claims that cannot be written down precisely are not made.
-- Hardening claims invite verification: the seccomp profiles, the egress rules, and the extension isolation are all in-tree, and external audit findings — formal or drive-by — get the same triage as any severity-one report.
+Bolt does not invent its security posture; it inherits a proven one. Observal — built by this team — holds the OpenSSF Best Practices **Gold** badge and a public Scorecard, and the practices that earned them are documented in its own pull requests. Bolt adopts the same regime from the first commit rather than retrofitting it at maturity, because retrofitting is exactly what Observal's August 2026 hardening sprint proved to be a month of work that day-one discipline makes free. The target is stated plainly: **OpenSSF Best Practices Gold and a Scorecard that stays above 9**, both badged in the README, both checkable by anyone.
+
+A harness that executes model-chosen commands is itself supply-chain-critical software — the standards Bolt applies to images it runs (HARNESS_PLAN.md section 11.4) would be hollow if its own pipeline did not meet them.
+
+### 7.1 Supply chain
+
+- **Everything pinned by immutable digest.** Every GitHub Action is pinned to a full 40-character commit SHA with the human-readable version as a trailing comment — tags are mutable, and an action runs with repository tokens. Container base images are pinned to multi-arch manifest digests. Lockfiles are the only dependency authority; no unversioned requirement files, no `curl | sh` anywhere in scripts or docs — including the install instructions.
+- **Scoped tokens.** Workflow token permissions default to read-only at the workflow level, with per-job elevation only where a job provably needs it.
+- **Dependency gates.** Dependency review on every pull request, automated advisory alerts triaged on a clock, and lockfile audits in CI. A known-vulnerable transitive dependency is a red build, not a backlog item.
+- **SBOMs** generated and published per release.
+
+### 7.2 Signed, verifiable releases
+
+- Artifacts carry **keyless Sigstore provenance attestations** from the release workflow's OIDC identity — no long-lived release key to leak. Release tags are **gitsign-signed** by the same identity.
+- The release pipeline **verifies its own attestations** before publishing, pinned to the canonical workflow identity, so a compromised job that cannot produce a valid certificate cannot ship.
+- A published **release verification document** walks users through checking digests, artifact provenance (`gh attestation verify`), and tag signatures — the counterpart of asking users to verify images (HARNESS_PLAN.md section 11.4).
+- Publish jobs are **resume-safe and idempotent**, and release automation resolves tags to SHAs at the start so nothing depends on a mutable ref mid-run. Boring, and the difference between a rerun and an incident.
+
+### 7.3 Continuous verification
+
+- **OpenSSF Scorecard** runs weekly and on every push to main, publishing results and uploading SARIF to code scanning.
+- **CodeQL on everything**: no path filters — docs and config changes are scanned too — and coverage of merge-queue candidates via `merge_group` triggers.
+- **Continuous fuzzing via OSS-Fuzz** at the trust boundaries, which for Bolt are sharply defined: the adoption compiler's package inspectors (foreign manifests, foreign plugin source), the session-import parsers (foreign JSONL), the tool-dialect renderers, and the event-log reader. Observal's fuzzing lesson transfers directly — its fuzzers found fifteen crash classes with one root cause, parsers assuming JSON *shape* after checking only that it was valid JSON, and Bolt's importers are wall-to-wall that exact pattern. Fuzz oracles mirror the real production code path, so every finding is reachable, not theoretical.
+- **Secret hygiene in depth**: Gitleaks in CI (including merge-queue candidates), private-key and secret detection in pre-commit, and deliberately fake credential fixtures for tests so scanners never learn to ignore matches.
+- **Workflow linting** (actionlint) and container linting in pre-commit, so the CI definition itself is held to CI standards.
+
+### 7.4 Branch protection and merge queue
+
+- Main takes changes only through pull requests, through a **merge queue**, with linear history. Every gate — CI, CodeQL, dependency review, secret scanning — runs on the queued merge candidate, not just the PR head, so what lands is what was tested.
+- Two-person review for kernel and security-boundary changes stands (section 4); no maintainer, BDFL included, pushes directly to main.
+- Maintainer accounts require **2FA**; release and publishing rights are held by the workflow identity, not by humans with tokens.
+
+### 7.5 Disclosure and assurance
+
+- `SECURITY.md` with GitHub Private Vulnerability Reporting as the preferred channel, plus email, and committed windows: acknowledgement in 48 hours, assessment in 7 days, resolution target 30 days. Sandbox escapes, permission bypasses, and credential leaks are severity-one regardless of how theoretical the exploit looks.
+- Security fixes may be developed in private and land with disclosure after release — the one sanctioned exception to develop-in-public. Reporters are credited in release notes unless they prefer otherwise.
+- A published **security assurance case**: claim, assets, threat actors and assumptions, trust boundaries, security requirements with arguments, common-weakness mitigations, residual risks, and a maintenance commitment. For Bolt this is where the sandbox's promises are stated against named attackers (HARNESS_PLAN.md sections 2.6, 10) — a security claim that cannot survive being written in this format is not made.
+- **Secure defaults are a Gold criterion and already Bolt's design**: loopback-only port publishing, deny-by-default egress, credential agility (file-backed secrets, no algorithm or key baked in without a transition path). The plan and the badge requirements agree; the assurance case documents where.
+- Hardening claims invite verification: seccomp profiles, egress rules, and extension isolation are in-tree, and external audit findings — formal or drive-by — get severity-one triage.
 
 ## 8. The compatibility catalog as a community program
 
@@ -125,3 +163,4 @@ The open-source posture is working when:
 5. A kernel RFC is rejected — proof the process is real and not a rubber stamp.
 6. A security researcher reports privately, the fix ships inside the committed window, and the disclosure is published without drama.
 7. Someone becomes a maintainer whom none of the founding ten has ever met.
+8. The OpenSSF Best Practices Gold badge and a 9+ Scorecard are live in the README within the first release cycle — earned by the practices in section 7 being true from the first commit, not by a remediation sprint.
